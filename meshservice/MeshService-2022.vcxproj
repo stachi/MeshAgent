@@ -236,8 +236,8 @@
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release_NoOpenSSL|ARM64'" />
     <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</PostBuildEventUseInBuild>
     <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|Win32'">false</PostBuildEventUseInBuild>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectName)</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|Win32'">$(ProjectName)</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">MeshService</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|Win32'">MeshService</TargetName>
     <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</PostBuildEventUseInBuild>
     <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">false</PostBuildEventUseInBuild>
     <PostBuildEventUseInBuild Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|x64'">false</PostBuildEventUseInBuild>
@@ -245,6 +245,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
+    <TargetName>MeshService</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_NoOpenSSL|Win32'">
     <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
@@ -255,7 +256,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
-    <TargetName>$(ProjectName)ARM64</TargetName>
+    <TargetName>MeshServiceARM64</TargetName>
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_NoOpenSSL|x64'">
     <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
@@ -263,25 +265,28 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_NoOpenSSL|ARM64'">
     <PostBuildEventUseInBuild>false</PostBuildEventUseInBuild>
-    <TargetName>$(ProjectName)64</TargetName>
+    <TargetName>MeshServiceARM64</TargetName>
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>MeshService64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <TargetName>$(ProjectName)ARM64</TargetName>
+    <TargetName>MeshServiceARM64</TargetName>
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|x64'">
     <TargetName>MeshService64</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|ARM64'">
-    <TargetName>$(ProjectName)64</TargetName>
+    <TargetName>MeshServiceARM64</TargetName>
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\openssl\include;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MESH_AGENTID=3;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;WIN32;_WINSERVICE;_DEBUG;_CONSOLE;MEMORY_CHECK;__STDC__;WINSOCK2;ILibWebServer_SESSION_TRACKING;MICROSTACK_NO_STDAFX;MICROSTACK_PROXY;MICROSTACK_TLS_DETECT;_REMOTELOGGING;_REMOTELOGGINGSERVER;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_DECLARE_NONSTDC_NAMES;OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=3;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;WIN32;_WINSERVICE;_DEBUG;_CONSOLE;MEMORY_CHECK;__STDC__;WINSOCK2;ILibWebServer_SESSION_TRACKING;MICROSTACK_NO_STDAFX;MICROSTACK_PROXY;MICROSTACK_TLS_DETECT;_REMOTELOGGING;_REMOTELOGGINGSERVER;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -374,7 +379,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\openssl\include;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MESH_AGENTID=4;DUK_USE_DATE_NOW_WINDOWS;MICROSTACK_PROXY;_WINSERVICE;NOLMSCOMMANDER;WIN32;WIN64;_LINKVM;_DEBUG;_CONSOLE;MEMORY_CHECK;MICROSTACK_NO_STDAFX;MICROSTACK_PROXY;__STDC__;_CRT_SECURE_NO_WARNINGS;WINSOCK2;ILibWebServer_SESSION_TRACKING;_REMOTELOGGING;_REMOTELOGGINGSERVER;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_DECLARE_NONSTDC_NAMES;OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=4;DUK_USE_DATE_NOW_WINDOWS;MICROSTACK_PROXY;_WINSERVICE;NOLMSCOMMANDER;WIN32;WIN64;_LINKVM;_DEBUG;_CONSOLE;MEMORY_CHECK;MICROSTACK_NO_STDAFX;MICROSTACK_PROXY;__STDC__;_CRT_SECURE_NO_WARNINGS;WINSOCK2;ILibWebServer_SESSION_TRACKING;_REMOTELOGGING;_REMOTELOGGINGSERVER;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -415,7 +420,7 @@ powershell -ExecutionPolicy Unrestricted $(ProjectDir)prebuild.ps1 $(ProjectDir)
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..\openssl\include;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>ARM64;MESH_AGENTID=43;DUK_USE_DATE_NOW_WINDOWS;MICROSTACK_PROXY;_WINSERVICE;NOLMSCOMMANDER;WIN32;WIN64;_LINKVM;_DEBUG;_CONSOLE;MEMORY_CHECK;MICROSTACK_NO_STDAFX;MICROSTACK_PROXY;__STDC__;_CRT_SECURE_NO_WARNINGS;WINSOCK2;ILibWebServer_SESSION_TRACKING;_REMOTELOGGING;_REMOTELOGGINGSERVER;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_DECLARE_NONSTDC_NAMES;OPENSSL_API_COMPAT=0x10101000L;ARM64;MESH_AGENTID=43;DUK_USE_DATE_NOW_WINDOWS;MICROSTACK_PROXY;_WINSERVICE;NOLMSCOMMANDER;WIN32;WIN64;_LINKVM;_DEBUG;_CONSOLE;MEMORY_CHECK;MICROSTACK_NO_STDAFX;MICROSTACK_PROXY;__STDC__;_CRT_SECURE_NO_WARNINGS;WINSOCK2;ILibWebServer_SESSION_TRACKING;_REMOTELOGGING;_REMOTELOGGINGSERVER;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <PrecompiledHeader>
@@ -537,7 +542,7 @@ powershell -ExecutionPolicy Unrestricted $(ProjectDir)prebuild.ps1 $(ProjectDir)
       <Optimization>Full</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\openssl\include;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MESH_AGENTID=3;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;WIN32;NDEBUG;_WINSERVICE;_CONSOLE;WINSOCK2;MICROSTACK_NO_STDAFX;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;_REMOTELOGGING;_REMOTELOGGINGSERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=3;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;WIN32;NDEBUG;_WINSERVICE;_CONSOLE;WINSOCK2;MICROSTACK_NO_STDAFX;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;_REMOTELOGGING;_REMOTELOGGINGSERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -626,7 +631,7 @@ powershell -ExecutionPolicy Unrestricted $(ProjectDir)prebuild.ps1 $(ProjectDir)
       <Optimization>MinSpace</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\openssl\include;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MESH_AGENTID=4;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;WIN32;WIN64;_WINSERVICE;NDEBUG;_LINKVM;_CONSOLE;MICROSTACK_NO_STDAFX;WINSOCK2;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;_REMOTELOGGING;_REMOTELOGGINGSERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=4;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;WIN32;WIN64;_WINSERVICE;NDEBUG;_LINKVM;_CONSOLE;MICROSTACK_NO_STDAFX;WINSOCK2;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;_REMOTELOGGING;_REMOTELOGGINGSERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -669,7 +674,7 @@ powershell -ExecutionPolicy Unrestricted $(ProjectDir)prebuild.ps1 $(ProjectDir)
       <Optimization>MinSpace</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>..\openssl\include;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>ARM64;MESH_AGENTID=43;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;WIN32;WIN64;_WINSERVICE;NDEBUG;_LINKVM;_CONSOLE;MICROSTACK_NO_STDAFX;WINSOCK2;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;_REMOTELOGGING;_REMOTELOGGINGSERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>OPENSSL_API_COMPAT=0x10101000L;ARM64;MESH_AGENTID=43;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;WIN32;WIN64;_WINSERVICE;NDEBUG;_LINKVM;_CONSOLE;MICROSTACK_NO_STDAFX;WINSOCK2;MICROSTACK_TLS_DETECT;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;_REMOTELOGGING;_REMOTELOGGINGSERVER;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>

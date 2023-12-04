@@ -697,7 +697,10 @@ int __fastcall util_mkCertEx(struct util_cert *rootcert, struct util_cert* cert,
 	char nameStr[(UTIL_SHA384_HASHSIZE * 2) + 2];
 	BIGNUM *oBigNbr;
 
-	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+	// Deprecated and partialy reworked in OpenSSL 3.0
+	#if (OPENSSL_VERSION_NUMBER < 0x30000000L)
+		CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+	#endif
 
 	if (initialcert != NULL)
 	{
