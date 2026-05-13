@@ -31,6 +31,7 @@ Library_Release_NoOpenSSL/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
+.vscode/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
 
@@ -198,6 +199,12 @@ csx/
 
 # Microsoft Azure Emulator
 ecf/
+
+# Linux Build Artifacts
+meshagent*
+DEBUG_meshagent*
+*.o
+
 rcf/
 
 # Windows Store app package directories and files
