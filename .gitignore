@@ -204,6 +204,7 @@ ecf/
 meshagent*
 DEBUG_meshagent*
 *.o
+dockcross-*
 
 rcf/
 
