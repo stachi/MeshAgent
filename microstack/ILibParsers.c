@@ -7364,10 +7364,14 @@ static const char cd64[]="|$$$}rstuvwxyz{$$$$$$$>?@ABCDEFGHIJKLMNOPQRSTUVW$$$$$$
 /* encode 3 8-bit binary bytes as 4 '6-bit' characters */
 void ILibencodeblock( unsigned char in[3], unsigned char out[4], int len )
 {
-	out[0] = cb64[ in[0] >> 2 ];
-	out[1] = cb64[ ((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4) ];
-	out[2] = (unsigned char) (len > 1 ? cb64[ ((in[1] & 0x0f) << 2) | (len>2?((in[2] & 0xc0) >> 6):0) ] : '=');
-	out[3] = (unsigned char) (len > 2 ? cb64[ in[2] & 0x3f ] : '=');
+	unsigned char in0 = in[0];
+	unsigned char in1 = len > 1 ? in[1] : 0;
+	unsigned char in2 = len > 2 ? in[2] : 0;
+
+	out[0] = cb64[ in0 >> 2 ];
+	out[1] = cb64[ ((in0 & 0x03) << 4) | ((in1 & 0xf0) >> 4) ];
+	out[2] = (unsigned char) (len > 1 ? cb64[ ((in1 & 0x0f) << 2) | ((in2 & 0xc0) >> 6) ] : '=');
+	out[3] = (unsigned char) (len > 2 ? cb64[ in2 & 0x3f ] : '=');
 }
 
 /*! \fn size_t ILibBase64EncodeLength(size_t inputLen)
