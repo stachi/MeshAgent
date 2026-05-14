@@ -558,7 +558,7 @@ duk_ret_t ILibDuktape_HttpStream_http_onUpgrade(duk_context *ctx)
 	duk_new(ctx, 2);															// [HTTPStream][readable][ext][websocket]
 	duk_remove(ctx, -2);														// [HTTPStream][readable][websocket]
 	
-	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.webSocketStream"));
+	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), ILibMemory_SmartAllocate_FromString(Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.webSocketStream")));
 	
 	duk_get_prop_string(ctx, -3, ILibDuktape_HTTP2CR);							// [HTTPStream][readable][websocket][clientRequest]
 	//duk_dup(ctx, -2);															// [HTTPStream][readable][websocket][clientRequest][websocket]
@@ -823,7 +823,7 @@ duk_ret_t ILibDuktape_HttpStream_http_OnSocketReady(duk_context *ctx)
 		return(0);
 	}
 	
-	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.clientRequest"));
+	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), ILibMemory_SmartAllocate_FromString(Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.clientRequest")));
 
 	// Register ourselves for the close event, becuase we'll need to put ourselves back in the Queue if the socket dies before we are done
 	duk_get_prop_string(ctx, -2, "prependOnceListener");				// [socket][clientRequest][prependOnce]
@@ -4101,7 +4101,7 @@ ILibTransport_DoneState ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(IL
 	char header[10];
 	int maskKeyInt;
 	int headerLen = 0;
-	unsigned short flags = state->noMasking == 0 ? WEBSOCKET_MASK : 0;
+	unsigned short flags;
 
 	char *buffer;
 	int bufferLen;
@@ -4112,6 +4112,7 @@ ILibTransport_DoneState ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(IL
 	char *compressedBuffer = NULL;
 
 	if (!ILibMemory_CanaryOK(state)) { return(ILibTransport_DoneState_ERROR); }
+	flags = state->noMasking == 0 ? WEBSOCKET_MASK : 0;
 
 	buffer = _buffer;
 	bufferLen = _bufferLen;
@@ -4644,15 +4645,40 @@ int ILibDuktape_httpStream_webSocket_EncodedUnshiftSink(ILibDuktape_DuplexStream
 	return(0);
 }
 
+ILibDuktape_WebSocket_State* ILibDuktape_httpStream_webSocket_GetStateFromDecodedStream(ILibDuktape_DuplexStream *stream)
+{
+	ILibDuktape_WebSocket_State *state = NULL;
+
+	if (!ILibMemory_CanaryOK(stream) || stream->writableStream == NULL || stream->ParentObject == NULL) { return(NULL); }
+
+	duk_push_heapptr(stream->writableStream->ctx, stream->ParentObject);						// [decoded]
+	duk_get_prop_string(stream->writableStream->ctx, -1, ILibDuktape_WSDEC2WS);				// [decoded][websocket]
+	if (duk_is_object(stream->writableStream->ctx, -1))
+	{
+		state = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(stream->writableStream->ctx, -1, ILibDuktape_WebSocket_StatePtr);
+	}
+	if (state == NULL) { duk_pop_2(stream->writableStream->ctx); }							// ...
+
+	return(state);
+}
 ILibTransport_DoneState ILibDuktape_httpStream_webSocket_DecodedWriteSink(ILibDuktape_DuplexStream *stream, char *buffer, int bufferLen, void *user)
 {
-	ILibDuktape_WebSocket_State *state = (ILibDuktape_WebSocket_State*)user;
-	return(ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(state, stream->writableStream->Reserved == 1 ? ILibWebClient_WebSocket_DataType_TEXT : ILibWebClient_WebSocket_DataType_BINARY, buffer, bufferLen, ILibWebClient_WebSocket_FragmentFlag_Complete));
+	ILibDuktape_WebSocket_State *state = ILibDuktape_httpStream_webSocket_GetStateFromDecodedStream(stream);
+	ILibTransport_DoneState retVal = ILibTransport_DoneState_ERROR;
+	UNREFERENCED_PARAMETER(user);
+	if (state != NULL)
+	{
+		retVal = ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(state, stream->writableStream->Reserved == 1 ? ILibWebClient_WebSocket_DataType_TEXT : ILibWebClient_WebSocket_DataType_BINARY, buffer, bufferLen, ILibWebClient_WebSocket_FragmentFlag_Complete);
+		duk_pop_2(stream->writableStream->ctx);												// ...
+	}
+	return(retVal);
 }
 void ILibDuktape_httpStream_webSocket_DecodedEndSink(ILibDuktape_DuplexStream *stream, void *user)
 {
-	ILibDuktape_WebSocket_State *state = (ILibDuktape_WebSocket_State*)user;
+	ILibDuktape_WebSocket_State *state = ILibDuktape_httpStream_webSocket_GetStateFromDecodedStream(stream);
+	UNREFERENCED_PARAMETER(user);
 	ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(state, WEBSOCKET_OPCODE_CLOSE, NULL, 0, ILibWebClient_WebSocket_FragmentFlag_Complete);
+	if (state != NULL) { duk_pop_2(stream->writableStream->ctx); }							// ...
 }
 void ILibDuktape_httpStream_webSocket_DecodedPauseSink_Chain(void *chain, void *user)
 {
@@ -4870,114 +4896,82 @@ duk_ret_t ILibDuktape_httpStream_webSocketStream_descriptorMetadata(duk_context 
 	}
 	return(0);
 }
-duk_ret_t ILibDuktape_WebSocket_bytesReceived_uncompressed(duk_context *ctx)
+duk_ret_t ILibDuktape_WebSocket_pushUInt64BigNum(duk_context *ctx, uint64_t value)
 {
 	int16_t test = 0x0001;
 	int LE = ((char*)&test)[0] ? 1 : 0;
-
-	ILibDuktape_WebSocket_State *ws = NULL;
-	duk_push_this(ctx);														// [WebSocket_Decoded]
-	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
-	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
-	
-	uint64_t v = ws->uncompressedReceived;
+	uint64_t *v;
 	duk_eval_string(ctx, "require('bignum')");								// [var][bignum]
 	duk_prepare_method_call(ctx, -1, "fromBuffer");							// [var][bignum][fromBuffer][this]
-	duk_push_external_buffer(ctx);											// [var][bignum][fromBuffer][this][buffer]
-	duk_config_buffer(ctx, -1, &v, sizeof(v));
-	duk_push_buffer_object(ctx, -1, 0, sizeof(v), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
+	v = (uint64_t*)Duktape_PushBuffer(ctx, sizeof(uint64_t));				// [var][bignum][fromBuffer][this][buffer]
+	*v = value;
+	duk_push_buffer_object(ctx, -1, 0, sizeof(*v), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
 	duk_remove(ctx, -2);													// [var][bignum][fromBuffer][this][nodeBuffer]
 	duk_push_object(ctx);													// [var][bignum][fromBuffer][this][nodeBuffer][options
 	duk_push_string(ctx, LE ? "little" : "big");							// [var][bignum][fromBuffer][this][nodeBuffer][options][endian]
 	duk_put_prop_string(ctx, -2, "endian");
 	duk_call_method(ctx, 2);												// [var][bignum][bignum]
 	return(1);
+}
+duk_ret_t ILibDuktape_WebSocket_bytesReceived_uncompressed(duk_context *ctx)
+{
+	ILibDuktape_WebSocket_State *ws = NULL;
+	uint64_t value = 0;
+	duk_push_this(ctx);														// [WebSocket_Decoded]
+	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
+	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
+	if (ws != NULL) { value = ws->uncompressedReceived; }
+	duk_pop_2(ctx);															// ...
+	return(ILibDuktape_WebSocket_pushUInt64BigNum(ctx, value));
 }
 duk_ret_t ILibDuktape_WebSocket_bytesReceived_actual(duk_context *ctx)
 {
-	int16_t test = 0x0001;
-	int LE = ((char*)&test)[0] ? 1 : 0;
-
 	ILibDuktape_WebSocket_State *ws = NULL;
+	uint64_t value = 0;
 	duk_push_this(ctx);														// [WebSocket_Decoded]
 	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
 	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
-
-	uint64_t v = ws->actualReceived;
-	duk_eval_string(ctx, "require('bignum')");								// [var][bignum]
-	duk_prepare_method_call(ctx, -1, "fromBuffer");							// [var][bignum][fromBuffer][this]
-	duk_push_external_buffer(ctx);											// [var][bignum][fromBuffer][this][buffer]
-	duk_config_buffer(ctx, -1, &v, sizeof(v));
-	duk_push_buffer_object(ctx, -1, 0, sizeof(v), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
-	duk_remove(ctx, -2);													// [var][bignum][fromBuffer][this][nodeBuffer]
-	duk_push_object(ctx);													// [var][bignum][fromBuffer][this][nodeBuffer][options
-	duk_push_string(ctx, LE ? "little" : "big");							// [var][bignum][fromBuffer][this][nodeBuffer][options][endian]
-	duk_put_prop_string(ctx, -2, "endian");
-	duk_call_method(ctx, 2);												// [var][bignum][bignum]
-	return(1);
-
+	if (ws != NULL) { value = ws->actualReceived; }
+	duk_pop_2(ctx);															// ...
+	return(ILibDuktape_WebSocket_pushUInt64BigNum(ctx, value));
 }
 duk_ret_t ILibDuktape_WebSocket_bytesSent_uncompressed(duk_context *ctx)
 {
-	int16_t test = 0x0001;
-	int LE = ((char*)&test)[0] ? 1 : 0;
-
 	ILibDuktape_WebSocket_State *ws = NULL;
+	uint64_t value = 0;
 	duk_push_this(ctx);														// [WebSocket_Decoded]
 	if (!duk_has_prop_string(ctx, -1, ILibDuktape_WSDEC2WS))
 	{
+		duk_pop(ctx);														// ...
 		duk_push_null(ctx);
 		return(1);
 	}
 	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
 	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
-
-	uint64_t v = ws->uncompressedSent;
-	duk_eval_string(ctx, "require('bignum')");								// [var][bignum]
-	duk_prepare_method_call(ctx, -1, "fromBuffer");							// [var][bignum][fromBuffer][this]
-	duk_push_external_buffer(ctx);											// [var][bignum][fromBuffer][this][buffer]
-	duk_config_buffer(ctx, -1, &v, sizeof(v));
-	duk_push_buffer_object(ctx, -1, 0, sizeof(v), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
-	duk_remove(ctx, -2);													// [var][bignum][fromBuffer][this][nodeBuffer]
-	duk_push_object(ctx);													// [var][bignum][fromBuffer][this][nodeBuffer][options
-	duk_push_string(ctx, LE ? "little" : "big");							// [var][bignum][fromBuffer][this][nodeBuffer][options][endian]
-	duk_put_prop_string(ctx, -2, "endian");
-	duk_call_method(ctx, 2);												// [var][bignum][bignum]
-	return(1);
-
+	if (ws != NULL) { value = ws->uncompressedSent; }
+	duk_pop_2(ctx);															// ...
+	return(ILibDuktape_WebSocket_pushUInt64BigNum(ctx, value));
 }
 duk_ret_t ILibDuktape_WebSocket_bytesSent_actual(duk_context *ctx)
 {
-	int16_t test = 0x0001;
-	int LE = ((char*)&test)[0] ? 1 : 0;
-
 	ILibDuktape_WebSocket_State *ws = NULL;
+	uint64_t value = 0;
 	duk_push_this(ctx);														// [WebSocket_Decoded]
 	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
 	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
-
-	uint64_t v = ws->actualSent;
-	duk_eval_string(ctx, "require('bignum')");								// [var][bignum]
-	duk_prepare_method_call(ctx, -1, "fromBuffer");							// [var][bignum][fromBuffer][this]
-	duk_push_external_buffer(ctx);											// [var][bignum][fromBuffer][this][buffer]
-	duk_config_buffer(ctx, -1, &v, sizeof(v));
-	duk_push_buffer_object(ctx, -1, 0, sizeof(v), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
-	duk_remove(ctx, -2);													// [var][bignum][fromBuffer][this][nodeBuffer]
-	duk_push_object(ctx);													// [var][bignum][fromBuffer][this][nodeBuffer][options
-	duk_push_string(ctx, LE ? "little" : "big");							// [var][bignum][fromBuffer][this][nodeBuffer][options][endian]
-	duk_put_prop_string(ctx, -2, "endian");
-	duk_call_method(ctx, 2);												// [var][bignum][bignum]
-	return(1);
+	if (ws != NULL) { value = ws->actualSent; }
+	duk_pop_2(ctx);															// ...
+	return(ILibDuktape_WebSocket_pushUInt64BigNum(ctx, value));
 }
 duk_ret_t ILibDuktape_WebSocket_bytesSent_ratio(duk_context *ctx)
 {
 	ILibDuktape_WebSocket_State *ws = NULL;
+	long double ratio = 0;
 	duk_push_this(ctx);														// [WebSocket_Decoded]
 	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
 	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
-
-	long double ratio = (long double)ws->actualSent / (long double)ws->uncompressedSent;
-	ratio = (1 - ratio) * 100;
+	if (ws != NULL && ws->uncompressedSent != 0) { ratio = (1 - ((long double)ws->actualSent / (long double)ws->uncompressedSent)) * 100; }
+	duk_pop_2(ctx);															// ...
 	duk_push_number(ctx, floor((double)ratio));
 	
 	return(1);
@@ -4985,12 +4979,12 @@ duk_ret_t ILibDuktape_WebSocket_bytesSent_ratio(duk_context *ctx)
 duk_ret_t ILibDuktape_WebSocket_bytesReceived_ratio(duk_context *ctx)
 {
 	ILibDuktape_WebSocket_State *ws = NULL;
+	long double ratio = 0;
 	duk_push_this(ctx);														// [WebSocket_Decoded]
 	duk_get_prop_string(ctx, -1, ILibDuktape_WSDEC2WS);						// [WebSocket_Decoded][WebSocket]
 	ws = (ILibDuktape_WebSocket_State*)Duktape_GetBufferProperty(ctx, -1, ILibDuktape_WebSocket_StatePtr);
-
-	long double ratio = (long double)ws->actualReceived / (long double)ws->uncompressedReceived;
-	ratio = (1 - ratio) * 100;
+	if (ws != NULL && ws->uncompressedReceived != 0) { ratio = (1 - ((long double)ws->actualReceived / (long double)ws->uncompressedReceived)) * 100; }
+	duk_pop_2(ctx);															// ...
 	duk_push_number(ctx, floor((double)ratio));
 
 	return(1);

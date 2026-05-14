@@ -3547,12 +3547,11 @@ void MeshServer_ControlChannel_PongSink(ILibWebClient_StateObject WebStateObject
 void MeshServer_OnResponse(ILibWebClient_StateObject WebStateObject, int InterruptFlag, struct packetheader *header, char *bodyBuffer, int *beginPointer, int endPointer, ILibWebClient_ReceiveStatus recvStatus, void *user1, void *user2, int *PAUSE)
 {
 	MeshAgentHostContainer *agent = (MeshAgentHostContainer*)user1;
-	ILibChain_Link_SetMetadata(ILibChain_GetCurrentLink(agent->chain), "MeshServer_ControlChannel");
+	ILibChain_Link_SetMetadata(ILibChain_GetCurrentLink(agent->chain), ILibMemory_SmartAllocate_FromString("MeshServer_ControlChannel"));
 	
 	if (agent->controlChannelRequest != NULL)
 	{
 		ILibLifeTime_Remove(ILibGetBaseTimer(agent->chain), agent->controlChannelRequest);
-		ILibMemory_Free(agent->controlChannelRequest);
 		agent->controlChannelRequest = NULL;
 	}
 
