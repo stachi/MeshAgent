@@ -3235,7 +3235,7 @@ duk_ret_t ILibDuktape_DescriptorEvents_descriptorAdded(duk_context *ctx)
 void ILibDuktape_DescriptorEvents_Push(duk_context *ctx, void *chain)
 {
 	ILibChain_Link *link = (ILibChain_Link*)ILibChain_Link_Allocate(sizeof(ILibChain_Link), 2 * sizeof(void*));
-	link->MetaData = "DescriptorEvents";
+	link->MetaData = ILibMemory_SmartAllocate_FromString("DescriptorEvents");
 	link->PreSelectHandler = ILibDuktape_DescriptorEvents_PreSelect;
 	link->PostSelectHandler = ILibDuktape_DescriptorEvents_PostSelect;
 	link->QueryHandler = ILibDuktape_DescriptorEvents_Query;

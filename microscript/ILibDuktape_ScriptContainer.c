@@ -1477,7 +1477,7 @@ void ILibDuktape_ScriptContainer_Process_Init(duk_context *ctx, char **argList)
 			ILibChain_Link *k = ILibChain_Link_Allocate(sizeof(ILibChain_Link), 2 * sizeof(void*));
 			((void**)k->ExtraMemoryPtr)[0] = ctx;
 			((void**)k->ExtraMemoryPtr)[1] = emitter->object;
-			k->MetaData = "Signal_Listener";
+			k->MetaData = ILibMemory_SmartAllocate_FromString("Signal_Listener");
 			k->PreSelectHandler = ILibDuktape_ScriptContainer_Process_SignalListener_PreSelect;
 			k->PostSelectHandler = ILibDuktape_ScriptContainer_Process_SignalListener_PostSelect;
 			ILibAddToChain(chain, k);
