@@ -1602,23 +1602,26 @@ int ILibDuktape_EventEmitter_AddOnEx(duk_context *ctx, duk_idx_t idx, char *even
 
 duk_ret_t ILibDuktape_EventEmitter_ForwardEx_target_newListenerSink(duk_context *ctx)
 {
+	char *eventName;
+	void *sourceObject;
+	char *hookedEvent;
 	duk_push_current_function(ctx);				// [func]
-	char *eventName = Duktape_GetStringPropertyValue(ctx, -1, "eventName", NULL);
-	void **ptr = (void**)Duktape_GetPointerProperty(ctx, -1, "sourcePtr");
-	char *hookedEvent = (char*)duk_require_string(ctx, 0);
-	if (eventName == NULL || !ILibMemory_CanaryOK(ptr) || strcmp(eventName, hookedEvent) != 0) { return(0); }
+	eventName = Duktape_GetStringPropertyValue(ctx, -1, "eventName", NULL);
+	sourceObject = Duktape_GetHeapptrProperty(ctx, -1, ILibDuktape_EventEmitter_Forward_SourceObject);
+	hookedEvent = (char*)duk_require_string(ctx, 0);
+	if (eventName == NULL || sourceObject == NULL || strcmp(eventName, hookedEvent) != 0) { return(0); }
 
 	duk_dup(ctx, 1);							// [func]
 	duk_prepare_method_call(ctx, -1, "bind");	// [func][bind][this]
 	duk_push_this(ctx);							// [func][bind][this][target]
 	duk_call_method(ctx, 1);					// [func][proxyFunc]
 	duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
-	duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
+	duk_push_heapptr(ctx, sourceObject); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 	duk_dup(ctx, -1);							// [func][proxyFunc][proxyFunc]
 	duk_put_prop_string(ctx, -3, "proxyFunc");	// [func][proxyFunc]
 
 
-	duk_push_heapptr(ctx, ptr[0]);				// [func][proxyFunc][source]
+	duk_push_heapptr(ctx, sourceObject);		// [func][proxyFunc][source]
 	duk_prepare_method_call(ctx, -1, "on");		// [func][proxyFunc][source][on][this]
 	duk_dup(ctx, 0);							// [func][proxyFunc][source][on][this][eventName]
 	duk_dup(ctx, -5);							// [func][proxyFunc][source][on][this][eventName][func]
@@ -1628,13 +1631,16 @@ duk_ret_t ILibDuktape_EventEmitter_ForwardEx_target_newListenerSink(duk_context 
 }
 duk_ret_t ILibDuktape_EventEmitter_ForwardEx_target_removeListenerSink(duk_context *ctx)
 {
+	char *eventName;
+	void *sourceObject;
+	char *hookedEvent;
 	duk_push_current_function(ctx);							// [func]
-	char *eventName = Duktape_GetStringPropertyValue(ctx, -1, "eventName", NULL);
-	void **ptr = (void**)Duktape_GetPointerProperty(ctx, -1, "sourcePtr");
-	char *hookedEvent = (char*)duk_require_string(ctx, 0);
-	if (eventName == NULL || !ILibMemory_CanaryOK(ptr) || strcmp(eventName, hookedEvent) != 0 || !duk_has_prop_string(ctx, 1, "proxyFunc")) { return(0); }
+	eventName = Duktape_GetStringPropertyValue(ctx, -1, "eventName", NULL);
+	sourceObject = Duktape_GetHeapptrProperty(ctx, -1, ILibDuktape_EventEmitter_Forward_SourceObject);
+	hookedEvent = (char*)duk_require_string(ctx, 0);
+	if (eventName == NULL || sourceObject == NULL || strcmp(eventName, hookedEvent) != 0 || !duk_has_prop_string(ctx, 1, "proxyFunc")) { return(0); }
 
-	duk_push_heapptr(ctx, ptr[0]);							// [source]
+	duk_push_heapptr(ctx, sourceObject);					// [source]
 	duk_prepare_method_call(ctx, -1, "removeListener");		// [source][removeListener][this]
 	duk_dup(ctx, 0);										// [source][removeListener][this][name]
 	duk_get_prop_string(ctx, 1, "proxyFunc");				// [source][removeListener][this][name][func]
@@ -1678,6 +1684,7 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 			if (duk_pcall_method(ctx, 1) != 0) { duk_set_top(ctx, X); return(1); }	// [array][func][proxyFunc]
 			duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
 			duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
+			duk_push_heapptr(ctx, source); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 			duk_put_prop_string(ctx, -2, "proxyFunc");								// [array][func]
 		}
 		duk_push_heapptr(ctx, source);												// [array][func][source]
@@ -1695,6 +1702,7 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 	duk_events_setup_on(ctx, targetIdx, "newListener", ILibDuktape_EventEmitter_ForwardEx_target_newListenerSink);			// [on][this][newListener][func]
 	duk_push_string(ctx, eventName); duk_put_prop_string(ctx, -2, "eventName");
 	duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
+	duk_push_heapptr(ctx, source); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 	duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
 	ret = duk_pcall_method(ctx, 2) == 0 ? 0 : 1;
 	duk_set_top(ctx, X);
@@ -1705,6 +1713,7 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 		duk_events_setup_on(ctx, targetIdx, "removeListener", ILibDuktape_EventEmitter_ForwardEx_target_removeListenerSink);	// [on][this][removeListener][func]
 		duk_push_string(ctx, eventName); duk_put_prop_string(ctx, -2, "eventName");
 		duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
+		duk_push_heapptr(ctx, source); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 		duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
 		ret = duk_pcall_method(ctx, 2) == 0 ? 0 : 1;
 		duk_set_top(ctx, X);
