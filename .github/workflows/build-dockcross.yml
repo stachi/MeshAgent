@@ -125,11 +125,19 @@ jobs:
                 apt-get install -y --no-install-recommends ${APT_PACKAGES}
               fi
               if [ -n "${YUM_PACKAGES}${APT_PACKAGES}" ]; then
-                include_paths="/usr/include"
-                while IFS= read -r xlib_header; do
-                  include_paths="${include_paths}:$(dirname "$(dirname "${xlib_header}")")"
-                done < <(find /usr -path '*/include/X11/Xlib.h' -type f 2>/dev/null)
-                export CPATH="${include_paths}${CPATH:+:${CPATH}}"
+                header_shim=/tmp/meshagent-headers
+                mkdir -p "${header_shim}"
+                x11_root=$(find /usr -path '*/include/X11/Xlib.h' -type f -print -quit 2>/dev/null)
+                if [ -n "${x11_root}" ]; then
+                  cp -a "$(dirname "${x11_root}")" "${header_shim}/"
+                fi
+                for jpeg_header in jconfig.h jerror.h jmorecfg.h jpeglib.h; do
+                  header_path=$(find /usr -path "*/include/${jpeg_header}" -type f -print -quit 2>/dev/null)
+                  if [ -n "${header_path}" ]; then
+                    cp "${header_path}" "${header_shim}/"
+                  fi
+                done
+                export CPATH="${header_shim}${CPATH:+:${CPATH}}"
               fi
               make clean
               if [ -z "${CC:-}" ]; then
