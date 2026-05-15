@@ -55,6 +55,13 @@ typedef struct ILibDuktape_ContextData
 	uint32_t apc_flags;
 #endif
 	uint32_t executionCount;
+#if defined(WIN32)
+	volatile LONG pendingDispatchCount;
+#elif defined(__ATOMIC_SEQ_CST)
+	volatile int pendingDispatchCount;
+#else
+	int pendingDispatchCount;
+#endif
 	uint64_t executionTime;
 	uint32_t maxExecutionTime;
 	void *threads;
@@ -65,6 +72,7 @@ typedef struct ILibDuktape_ContextData
 
 #define DUKTAPE_DEFAULT_MAX_EXECUTION_TIMEOUT 0
 #define duk_destroy_heap_in_progress	0x01
+#define duk_destroy_heap_ctxd_pending_free	0x02
 #define duk_ctx_context_data(ctx) ((ILibDuktape_ContextData*)(ILibMemory_CanaryOK(ctx)?((void**)ILibMemory_Extra(ctx))[0]:NULL))
 #define duk_ctx_nonce(ctx) (duk_ctx_context_data(ctx)->nonce)
 #define duk_ctx_is_alive(ctx) (ILibMemory_CanaryOK(ctx)&&ILibMemory_ExtraSize(ctx)==sizeof(void*))
