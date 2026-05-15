@@ -1,0 +1,171 @@
+name: Dockcross builds
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Use dockcross only for targets that map closely to stock dockcross images.
+        # OpenWRT, Poky, and legacy vendor toolchains should be added later with
+        # their real SDKs/sysroots.
+        include:
+          - name: linux-x86-64
+            image: dockcross/manylinux2014-x64
+            target: linux
+            archid: "6"
+            output: meshagent_x86-64
+            yum_packages: libX11-devel libXtst-devel libXext-devel libXrandr-devel libXfixes-devel libxkbfile-devel
+            apt_packages: libx11-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev libxkbfile-dev
+            experimental: false
+
+          - name: linux-x86-32
+            image: dockcross/manylinux2014-x86
+            target: linux
+            archid: "5"
+            output: meshagent_x86
+            yum_packages: libX11-devel libXtst-devel libXext-devel libXrandr-devel libXfixes-devel libxkbfile-devel
+            apt_packages: libx11-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev libxkbfile-dev
+            experimental: false
+
+          - name: linux-x86-64-nokvm
+            image: dockcross/manylinux2014-x64
+            target: linux
+            archid: "20"
+            output: meshagent_x86-64_nokvm
+            yum_packages: ""
+            apt_packages: ""
+            experimental: false
+
+          - name: linux-x86-32-nokvm
+            image: dockcross/manylinux2014-x86
+            target: linux
+            archid: "19"
+            output: meshagent_x86_nokvm
+            yum_packages: ""
+            apt_packages: ""
+            experimental: false
+
+          - name: linux-arm64
+            image: dockcross/manylinux2014-aarch64
+            target: linux
+            archid: "26"
+            output: meshagent_arm64
+            yum_packages: libX11-devel libXtst-devel libXext-devel libXrandr-devel libXfixes-devel libxkbfile-devel
+            apt_packages: libx11-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev libxkbfile-dev
+            experimental: false
+
+          - name: linux-armhf
+            image: dockcross/linux-armv7
+            target: linux
+            archid: "25"
+            output: meshagent_armhf
+            yum_packages: libX11-devel libXtst-devel libXext-devel libXrandr-devel libXfixes-devel libxkbfile-devel
+            apt_packages: libx11-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev libxkbfile-dev
+            experimental: false
+
+          - name: linux-arm-linaro
+            image: dockcross/linux-armv7
+            target: linux
+            archid: "24"
+            output: meshagent_arm-linaro
+            yum_packages: libX11-devel libXtst-devel libXext-devel libXrandr-devel libXfixes-devel libxkbfile-devel
+            apt_packages: libx11-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev libxkbfile-dev
+            experimental: false
+
+          - name: linux-aarch64
+            image: dockcross/manylinux2014-aarch64
+            target: linux
+            archid: "32"
+            output: meshagent_aarch64
+            yum_packages: libX11-devel libXtst-devel libXext-devel libXrandr-devel libXfixes-devel libxkbfile-devel
+            apt_packages: libx11-dev libxtst-dev libxext-dev libxrandr-dev libxfixes-dev libxkbfile-dev
+            experimental: true
+
+          - name: linux-riscv64
+            image: dockcross/linux-riscv64
+            target: linux
+            archid: "45"
+            output: meshagent_riscv64
+            yum_packages: ""
+            apt_packages: ""
+            experimental: true
+
+          - name: alpine-x86-64
+            image: dockcross/linux-x64-musl
+            target: linux
+            archid: "33"
+            output: meshagent_alpine-x86-64
+            yum_packages: ""
+            apt_packages: ""
+            experimental: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull dockcross image
+        run: docker pull "${{ matrix.image }}"
+
+      - name: Build
+        env:
+          DOCKCROSS_IMAGE: ${{ matrix.image }}
+          MAKE_TARGET: ${{ matrix.target }}
+          ARCHID: ${{ matrix.archid }}
+          OUTPUT: ${{ matrix.output }}
+          YUM_PACKAGES: ${{ matrix.yum_packages }}
+          APT_PACKAGES: ${{ matrix.apt_packages }}
+        run: |
+          docker run --rm \
+            -e ARCHID \
+            -e MAKE_TARGET \
+            -e OUTPUT \
+            -e YUM_PACKAGES \
+            -e APT_PACKAGES \
+            -v "${GITHUB_WORKSPACE}:/work" \
+            -w /work \
+            "${DOCKCROSS_IMAGE}" \
+            bash -lc '
+              set -euxo pipefail
+              if [ -n "${YUM_PACKAGES}" ] && command -v yum >/dev/null 2>&1; then
+                yum install -y ${YUM_PACKAGES}
+              elif [ -n "${APT_PACKAGES}" ] && command -v apt-get >/dev/null 2>&1; then
+                apt-get update
+                apt-get install -y --no-install-recommends ${APT_PACKAGES}
+              fi
+              make clean
+              if [ -z "${CC:-}" ]; then
+                CC="${CROSS_TRIPLE:+${CROSS_TRIPLE}-gcc}"
+                CC="${CC:-gcc}"
+              fi
+              if [ -z "${STRIP:-}" ]; then
+                case "${CROSS_TRIPLE:-}" in
+                  ""|i686-linux-gnu|x86_64-linux-gnu) STRIP=strip ;;
+                  *) STRIP="${CROSS_TRIPLE}-strip" ;;
+                esac
+              fi
+              make "${MAKE_TARGET}" ARCHID="${ARCHID}" CC="${CC}" STRIP="${STRIP} ./${OUTPUT}"
+            '
+
+      - name: Stage artifact
+        if: always()
+        run: |
+          mkdir -p dist
+          find . -maxdepth 1 -type f -name 'meshagent_*' -perm -111 -exec cp {} dist/ \;
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/
+          if-no-files-found: ignore
