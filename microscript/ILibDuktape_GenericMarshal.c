@@ -1283,6 +1283,7 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_ChainDispatch(void *chain, voi
 	duk_swap_top(data->ctx, -2);																			// [resolver][this]
 	ILibDuktape_GenericMarshal_Variable_PUSH(data->ctx, (void*)(PTRSIZE)data->vars, (int)sizeof(void*));	// [resolver][this][var]
 	duk_push_int(data->ctx, data->lastError); duk_put_prop_string(data->ctx, -2, "_LastError");
+	duk_push_null(data->ctx); duk_put_prop_string(data->ctx, -3, "_data");									// Clear native pointer before data can be freed
 	data->promise = NULL;
 
 	if (duk_pcall_method(data->ctx, 1) != 0) { ILibDuktape_Process_UncaughtExceptionEx(ctx, "Error Resolving Promise: "); }
@@ -1442,6 +1443,7 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_Done_chain(void *chain, void* 
 	duk_swap_top(data->ctx, -2);																			// [resolver][this]
 	ILibDuktape_GenericMarshal_Variable_PUSH(data->ctx, (void*)data->workAvailable, (int)sizeof(void*));	// [resolver][this][var]
 	duk_push_int(data->ctx, data->lastError); duk_put_prop_string(data->ctx, -2, "_LastError");
+	duk_push_null(data->ctx); duk_put_prop_string(data->ctx, -3, "_data");									// Clear native pointer before data can be freed
 	data->promise = NULL;
 	if (duk_pcall_method(data->ctx, 1) != 0) { ILibDuktape_Process_UncaughtExceptionEx(data->ctx, "Error Resolving Promise: "); }
 	
