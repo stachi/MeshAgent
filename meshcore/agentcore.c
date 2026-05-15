@@ -3549,7 +3549,9 @@ void MeshServer_OnResponse(ILibWebClient_StateObject WebStateObject, int Interru
 	MeshAgentHostContainer *agent = (MeshAgentHostContainer*)user1;
 	ILibChain_Link_SetMetadata(ILibChain_GetCurrentLink(agent->chain), ILibMemory_SmartAllocate_FromString("MeshServer_ControlChannel"));
 	
-	if (agent->controlChannelRequest != NULL)
+	// Only clear the active connect timeout for the request that generated
+	// this callback. A stale cancel callback must not remove a newer retry.
+	if (agent->controlChannelRequest != NULL && (user2 == NULL || agent->controlChannelRequest == user2))
 	{
 		ILibLifeTime_Remove(ILibGetBaseTimer(agent->chain), agent->controlChannelRequest);
 		agent->controlChannelRequest = NULL;
@@ -3777,15 +3779,17 @@ void MeshServer_ConnectEx_NetworkError(void *j)
 {
 	MeshAgentHostContainer *agent = (MeshAgentHostContainer*)((void**)j)[0];
 	void *request = ((void**)j)[1];
-	ILibMemory_Free(j);
+	if (agent->controlChannelRequest == j) { agent->controlChannelRequest = NULL; }
 
 	if (agent->controlChannelDebug != 0) { ILIBLOGMESSAGEX("Network Timeout Occurred..."); }
 	agent->serverConnectionState = 0; // We are cancelling connection request
 
 	printf("Network Timeout occurred...\n");
 
+	// Cancelling the request invokes MeshServer_OnResponse(), which schedules
+	// the next retry through the normal reconnect path.
 	ILibWebClient_CancelRequest(request);
-	MeshServer_ConnectEx(agent);
+	ILibMemory_Free(j);
 }
 void MeshServer_ConnectEx_NetworkError_Cleanup(void *j)
 {
@@ -4149,7 +4153,9 @@ void MeshServer_ConnectEx(MeshAgentHostContainer *agent)
 		void **tmp = ILibMemory_SmartAllocate(2 * sizeof(void*));
 		agent->controlChannelRequest = tmp;
 		tmp[0] = agent;
-		tmp[1] = reqToken = ILibWebClient_PipelineRequest(agent->httpClientManager, (struct sockaddr*)&meshServer, req, MeshServer_OnResponse, agent, NULL);
+		// Pass the timeout container through user2 so OnResponse can tell
+		// whether it is clearing this request or a newer retry.
+		tmp[1] = reqToken = ILibWebClient_PipelineRequest(agent->httpClientManager, (struct sockaddr*)&meshServer, req, MeshServer_OnResponse, agent, tmp);
 		ILibLifeTime_Add(ILibGetBaseTimer(agent->chain), tmp, 20, MeshServer_ConnectEx_NetworkError, MeshServer_ConnectEx_NetworkError_Cleanup);
 
 #ifndef MICROSTACK_NOTLS
