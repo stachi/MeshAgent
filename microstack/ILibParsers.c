@@ -3896,10 +3896,11 @@ void __stdcall ILibChain_AddWaitHandle_apc(ULONG_PTR u)
 	int msTIMEOUT = (int)(uintptr_t)((void**)u)[2];
 	ILibChain_WaitHandleHandler handler = (ILibChain_WaitHandleHandler)((void**)u)[3];
 	void *user = ((void**)u)[4];
-	void *metadata = (char*)((void**)u)[5];
+	char *metadata = (char*)((void**)u)[5];
 
 	ILibChain_AddWaitHandleEx(chain, h, msTIMEOUT, handler, user, metadata);
 
+	ILibMemory_Free(metadata);
 	ILibMemory_Free((void*)u);
 }
 void ILibChain_AddWaitHandleEx(void *chain, HANDLE h, int msTIMEOUT, ILibChain_WaitHandleHandler handler, void *user, char *metadata)
@@ -3912,7 +3913,8 @@ void ILibChain_AddWaitHandleEx(void *chain, HANDLE h, int msTIMEOUT, ILibChain_W
 		tmp[2] = (void*)(uintptr_t)msTIMEOUT;
 		tmp[3] = handler;
 		tmp[4] = user;
-		tmp[5] = metadata;
+		// Metadata may be caller-owned; the queued APC needs its own copy.
+		tmp[5] = ILibMemory_SmartAllocate_FromString(metadata == NULL ? "" : metadata);
 		QueueUserAPC((PAPCFUNC)ILibChain_AddWaitHandle_apc, ILibChain_GetMicrostackThreadHandle(chain), (ULONG_PTR)tmp);
 		return;
 	}
