@@ -445,11 +445,14 @@ void ILibWebClient_DestroyWebClientDataObject(ILibWebClient_StateObject token)
 
 	if (wcdo->header != NULL)
 	{
+		struct packetheader *header = wcdo->header;
 		//
 		// The header needs to be freed
+		// Clear the WCDO pointer before destructing the packet, so reentrant
+		// cleanup paths cannot observe and free the same header again.
 		//
-		ILibDestructPacket(wcdo->header);	 // TODO: *********** CRASH ON EXIT SOMETIMES OCCURS HERE
 		wcdo->header = NULL;
+		ILibDestructPacket(header);
 	}
 //{{{ REMOVE_THIS_FOR_HTTP/1.0_ONLY_SUPPORT--> }}}
 	if (wcdo->chunk != NULL)
@@ -524,7 +527,7 @@ void ILibDestroyWebClient(void *object)
 		// Free the WebClientDataObject
 		//
 		ILibHashTree_GetValue(en, &key, &keyLength, &wcdo);
-		ILibWebClient_DestroyWebClientDataObject(wcdo); // TODO: *********** BAD CRASH ON EXIT SOMETIMES OCCURS HERE
+		ILibWebClient_DestroyWebClientDataObject(wcdo);
 	}
 	ILibHashTree_DestroyEnumerator(en);
 	
@@ -2167,6 +2170,13 @@ void ILibWebClient_OnDisconnectSink(ILibAsyncSocket_SocketModule socketModule, v
 
 	if (wcdo == NULL) { return; }
 	if (wcdo->DeferDestruction && wcdo->CancelRequest == 0) { return; }
+	if (wcdo->Closing != 0)
+	{
+		// Disconnect can be raised synchronously while the WCDO is being destroyed.
+		// Do not run response cleanup/callback logic against a closing object.
+		wcdo->SOCK = NULL;
+		return;
+	}
 
 	if (wcdo->DisconnectSent != 0)
 	{
@@ -3068,6 +3078,9 @@ void ILibWebClient_CancelRequestEx2(ILibWebClient_StateObject wcdo, void *userRe
 	int BeginPointer = 0;
 	int EndPointer = 0;
 	void *PendingRequestQ = NULL;
+	int DestroyEmptyWCDO = 0;
+	union { char bytes[24]; struct sockaddr_in6 align; } RequestToken;
+	int RequestTokenLength;
 
 	if (wcdo != NULL && ILibMemory_CanaryOK(wcdo))
 	{
@@ -3135,6 +3148,18 @@ void ILibWebClient_CancelRequestEx2(ILibWebClient_StateObject wcdo, void *userRe
 				ILibQueue_EnQueue(_wcdo->Parent->backlogQueue, _wcdo);
 			}
 		}
+		if (HeadDeleted != 0 && ILibQueue_PeekQueue(_wcdo->RequestQueue) == NULL)
+		{
+			// The cancelled request was the last request on this WCDO.
+			// Remove it before callbacks can enqueue a replacement request,
+			// so reconnect attempts create a fresh WCDO instead of reusing
+			// this cancelled connection state.
+			RequestTokenLength = ILibCreateTokenStr((struct sockaddr*)&(_wcdo->remote), _wcdo->IndexNumber, RequestToken.bytes);
+			ILibDeleteEntry(_wcdo->Parent->DataTable, RequestToken.bytes, RequestTokenLength);
+			ILibDeleteEntry(_wcdo->Parent->idleTable, RequestToken.bytes, RequestTokenLength);
+			ILibLinkedList_Remove_ByData(_wcdo->Parent->backlogQueue, _wcdo);
+			DestroyEmptyWCDO = 1;
+		}
 
 		ILibSpinLock_UnLock(&(_wcdo->Parent->QLock));
 
@@ -3160,6 +3185,7 @@ void ILibWebClient_CancelRequestEx2(ILibWebClient_StateObject wcdo, void *userRe
 			wr = (struct ILibWebRequest*)ILibQueue_DeQueue(PendingRequestQ);
 		}
 		ILibQueue_Destroy(PendingRequestQ);
+		if (DestroyEmptyWCDO != 0) { ILibWebClient_DestroyWebClientDataObject(_wcdo); }
 	}
 }
 
