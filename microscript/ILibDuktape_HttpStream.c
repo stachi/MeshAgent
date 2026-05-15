@@ -4677,8 +4677,11 @@ void ILibDuktape_httpStream_webSocket_DecodedEndSink(ILibDuktape_DuplexStream *s
 {
 	ILibDuktape_WebSocket_State *state = ILibDuktape_httpStream_webSocket_GetStateFromDecodedStream(stream);
 	UNREFERENCED_PARAMETER(user);
-	ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(state, WEBSOCKET_OPCODE_CLOSE, NULL, 0, ILibWebClient_WebSocket_FragmentFlag_Complete);
-	if (state != NULL) { duk_pop_2(stream->writableStream->ctx); }							// ...
+	if (state != NULL)
+	{
+		ILibDuktape_httpStream_webSocket_WriteWebSocketPacket(state, WEBSOCKET_OPCODE_CLOSE, NULL, 0, ILibWebClient_WebSocket_FragmentFlag_Complete);
+		duk_pop_2(stream->writableStream->ctx);												// ...
+	}
 }
 void ILibDuktape_httpStream_webSocket_DecodedPauseSink_Chain(void *chain, void *user)
 {
