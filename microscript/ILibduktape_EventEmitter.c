@@ -1646,6 +1646,10 @@ duk_ret_t ILibDuktape_EventEmitter_ForwardEx_target_removeListenerSink(duk_conte
 	duk_get_prop_string(ctx, 1, "proxyFunc");				// [source][removeListener][this][name][func]
 	duk_call_method(ctx, 2);								// [source][ret]
 
+	// Drop the source reference before releasing the proxy function.
+	duk_get_prop_string(ctx, 1, "proxyFunc");
+	duk_del_prop_string(ctx, -1, ILibDuktape_EventEmitter_Forward_SourceObject);
+	duk_pop(ctx);
 	duk_del_prop_string(ctx, 1, "proxyFunc");
 	return(0);
 }
@@ -1654,20 +1658,6 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 	int X = duk_get_top(ctx);
 	void *source = duk_get_heapptr(ctx, sourceIdx);
 	void *target = duk_get_heapptr(ctx, targetIdx);
-	void **ptr;
-
-	duk_push_heapptr(ctx, source);												// [source]
-	if (!duk_has_prop_string(ctx, -1, "\xFF_ProxyEvent_WeakReference"))
-	{
-		ptr = (void**)Duktape_PushBuffer(ctx, sizeof(void*));					// [source][buffer]
-		duk_put_prop_string(ctx, -2, "\xFF_ProxyEvent_WeakReference");			// [source]
-		ptr[0] = source;
-	}
-	else
-	{
-		ptr = Duktape_GetPointerProperty(ctx, -1, "\xFF_ProxyEvent_WeakReference");
-	}
-	duk_pop(ctx);																// ...
 
 
 	// Check for pre-existing event listeners
@@ -1683,7 +1673,6 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 			duk_push_heapptr(ctx, target);											// [array][func][bind][this][target]
 			if (duk_pcall_method(ctx, 1) != 0) { duk_set_top(ctx, X); return(1); }	// [array][func][proxyFunc]
 			duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
-			duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
 			duk_push_heapptr(ctx, source); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 			duk_put_prop_string(ctx, -2, "proxyFunc");								// [array][func]
 		}
@@ -1701,7 +1690,7 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 	duk_set_top(ctx, X);
 	duk_events_setup_on(ctx, targetIdx, "newListener", ILibDuktape_EventEmitter_ForwardEx_target_newListenerSink);			// [on][this][newListener][func]
 	duk_push_string(ctx, eventName); duk_put_prop_string(ctx, -2, "eventName");
-	duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
+	// Keep the source alive while the target-side forwarding hook can still fire.
 	duk_push_heapptr(ctx, source); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 	duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
 	ret = duk_pcall_method(ctx, 2) == 0 ? 0 : 1;
@@ -1712,7 +1701,6 @@ int ILibDuktape_EventEmitter_ForwardEventEx(duk_context *ctx, duk_idx_t sourceId
 		// Hookup a 'removeListener' hook, to remove subscribers
 		duk_events_setup_on(ctx, targetIdx, "removeListener", ILibDuktape_EventEmitter_ForwardEx_target_removeListenerSink);	// [on][this][removeListener][func]
 		duk_push_string(ctx, eventName); duk_put_prop_string(ctx, -2, "eventName");
-		duk_push_pointer(ctx, ptr); duk_put_prop_string(ctx, -2, "sourcePtr");
 		duk_push_heapptr(ctx, source); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_Forward_SourceObject);
 		duk_push_true(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_EventEmitter_InfrastructureEvent);
 		ret = duk_pcall_method(ctx, 2) == 0 ? 0 : 1;
