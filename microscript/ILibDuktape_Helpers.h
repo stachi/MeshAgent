@@ -56,7 +56,7 @@ typedef struct ILibDuktape_ContextData
 #endif
 	uint32_t executionCount;
 #if defined(WIN32)
-	volatile LONG pendingDispatchCount;
+	volatile long pendingDispatchCount;
 #elif defined(__ATOMIC_SEQ_CST)
 	volatile int pendingDispatchCount;
 #else
