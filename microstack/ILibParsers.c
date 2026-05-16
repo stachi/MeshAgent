@@ -3629,7 +3629,8 @@ BOOL ILibChain_WriteEx_Sink(void *chain, HANDLE h, ILibWaitHandle_ErrorStatus st
 					break;
 				case ILibTransport_DoneState_INCOMPLETE:
 					ret = TRUE;
-					ILibMemory_Free(data);
+					// The continuation references this state as its user context.
+					break;
 				case ILibTransport_DoneState_ERROR:
 					if (data->handler != NULL) { data->handler(chain, data->fileHandle, ILibWaitHandle_ErrorStatus_IO_ERROR, 0, data->user); }
 					ILibMemory_Free(data->metadata);
@@ -3715,8 +3716,8 @@ ILibTransport_DoneState ILibChain_WriteEx2(void *chain, HANDLE h, OVERLAPPED *p,
 			state->handler = handler;
 			state->fileHandle = h;
 			state->user = user;
-			state->metadata = metadata;
-			ILibChain_AddWaitHandleEx(chain, p->hEvent, -1, ILibChain_WriteEx_Sink, state, metadata);
+			state->metadata = ILibMemory_SmartAllocate_FromString(metadata == NULL ? "" : metadata);
+			ILibChain_AddWaitHandleEx(chain, p->hEvent, -1, ILibChain_WriteEx_Sink, state, state->metadata);
 			return(ILibTransport_DoneState_INCOMPLETE);
 		}
 		else
@@ -3903,10 +3904,11 @@ void __stdcall ILibChain_AddWaitHandle_apc(ULONG_PTR u)
 	int msTIMEOUT = (int)(uintptr_t)((void**)u)[2];
 	ILibChain_WaitHandleHandler handler = (ILibChain_WaitHandleHandler)((void**)u)[3];
 	void *user = ((void**)u)[4];
-	void *metadata = (char*)((void**)u)[5];
+	char *metadata = (char*)((void**)u)[5];
 
 	ILibChain_AddWaitHandleEx(chain, h, msTIMEOUT, handler, user, metadata);
 
+	ILibMemory_Free(metadata);
 	ILibMemory_Free((void*)u);
 }
 void ILibChain_AddWaitHandleEx(void *chain, HANDLE h, int msTIMEOUT, ILibChain_WaitHandleHandler handler, void *user, char *metadata)
@@ -3919,7 +3921,8 @@ void ILibChain_AddWaitHandleEx(void *chain, HANDLE h, int msTIMEOUT, ILibChain_W
 		tmp[2] = (void*)(uintptr_t)msTIMEOUT;
 		tmp[3] = handler;
 		tmp[4] = user;
-		tmp[5] = metadata;
+		// Metadata may be caller-owned; the queued APC needs its own copy.
+		tmp[5] = ILibMemory_SmartAllocate_FromString(metadata == NULL ? "" : metadata);
 		QueueUserAPC((PAPCFUNC)ILibChain_AddWaitHandle_apc, ILibChain_GetMicrostackThreadHandle(chain), (ULONG_PTR)tmp);
 		return;
 	}
@@ -3961,16 +3964,18 @@ void __stdcall ILibChain_RemoveWaitHandle_APC(ULONG_PTR u)
 	void *node = ILibLinkedList_GetNode_Search(chain->auxSelectHandles, NULL, h);
 	if (node != NULL)
 	{
+		int activeHandle = (chain->currentHandle == h);
 		//
 		// We found the HANDLE, so if we remove the HANDLE from the list, and
 		// set the unblock flag, we'll be good to go
 		//
-		if (chain->currentHandle == h) 
+		if (activeHandle != 0)
 		{
 			chain->currentHandle = NULL; chain->currentInfo = NULL; 
 		}
 		ILibChain_WaitHandleInfo *info = (ILibChain_WaitHandleInfo*)ILibMemory_Extra(node);
-		if (clean != 0) { ILibMemory_Free(info->user); }
+		// The active callback still owns its user state.
+		if (clean != 0 && activeHandle == 0) { ILibMemory_Free(info->user); }
 		ILibLinkedList_Remove(node);
 		chain->UnblockFlag = 1;
 	}
