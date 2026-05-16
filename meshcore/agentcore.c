@@ -3550,7 +3550,6 @@ void MeshServer_OnResponse(ILibWebClient_StateObject WebStateObject, int Interru
 	if (agent->controlChannelRequest != NULL)
 	{
 		ILibLifeTime_Remove(ILibGetBaseTimer(agent->chain), agent->controlChannelRequest);
-		ILibMemory_Free(agent->controlChannelRequest);
 		agent->controlChannelRequest = NULL;
 	}
 
