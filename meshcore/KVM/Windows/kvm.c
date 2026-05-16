@@ -1241,7 +1241,8 @@ DWORD WINAPI kvm_server_mainloop(LPVOID parm)
 			str[strLen - 4] = 0;														  // We're going to convert .exe to _kvm.dmp
 			g_ILibCrashDump_path = ILibMemory_Allocate((strLen * 2) + 10, 0, NULL, NULL); // Add enough space to add '.dmp' to the end of the path
 			swprintf_s((wchar_t *)g_ILibCrashDump_path, strLen + 5, L"%s_kvm.dmp", str);
-			ILibCriticalLogFilename = "KVMSlave.log";
+			if (ILibCriticalLogFilename != NULL) { free(ILibCriticalLogFilename); }
+			ILibCriticalLogFilename = ILibString_Copy("KVMSlave.log", 0);
 		}
 
 		__try

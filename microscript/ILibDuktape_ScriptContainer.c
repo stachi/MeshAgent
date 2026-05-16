@@ -3378,7 +3378,8 @@ int ILibDuktape_ScriptContainer_StartSlave(void *chain, ILibProcessPipe_Manager 
 #endif
 
 #if defined(_POSIX) && !defined(__APPLE__)
-	ILibCriticalLogFilename = "/var/tmp/agentSlave";
+	if (ILibCriticalLogFilename != NULL) { free(ILibCriticalLogFilename); }
+	ILibCriticalLogFilename = ILibString_Copy("/var/tmp/agentSlave", 0);
 #endif
 
 #ifndef MICROSTACK_NOTLS
