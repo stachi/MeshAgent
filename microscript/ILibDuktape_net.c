@@ -445,7 +445,7 @@ duk_ret_t ILibDuktape_net_socket_connect(duk_context *ctx)
 		winIPC->mSocket = duk_get_heapptr(ctx, -1);
 		winIPC->mChain = duk_ctx_chain(ctx);
 		winIPC->paused = 1;
-		winIPC->metadata = "net.ipcSocket";
+		winIPC->metadata = ILibMemory_SmartAllocate_FromString("net.ipcSocket");
 		winIPC->bufferLength = ILibDuktape_net_IPC_BUFFERSIZE;
 		ILibMemory_ReallocateRaw(&(winIPC->buffer), ILibDuktape_net_IPC_BUFFERSIZE);
 
@@ -985,7 +985,7 @@ BOOL ILibDuktape_server_ipc_ReadSink(void *chain, HANDLE h, ILibWaitHandle_Error
 			winIPC->totalRead -= (winIPC->totalRead - winIPC->unshiftedBytes);
 		} while (winIPC->paused == 0 && consumed != 0 && winIPC->totalRead > 0);
 		if (winIPC->totalRead == 0) { winIPC->bufferOffset = 0; }
-		if (winIPC->paused == 0)
+		if (winIPC->paused == 0 && winIPC->mPipeHandle != NULL)
 		{
 			if (winIPC->bufferOffset > 0)
 			{
@@ -1293,7 +1293,7 @@ BOOL ILibDuktape_net_server_IPC_ConnectSink(void *chain, HANDLE event, ILibWaitH
 		ILibDuktape_EventEmitter_SetupEmit(winIPC->ctx, winIPC->mServer, "connection");	// [emit][this][connection]
 		duk_push_object(winIPC->ctx);													// [emit][this][connection][socket]
 		ILibDuktape_WriteID(winIPC->ctx, "net.ipcSocket");
-		winIPC->metadata = "net.ipcSocket";
+		winIPC->metadata = ILibMemory_SmartAllocate_FromString("net.ipcSocket");
 
 		duk_push_heapptr(winIPC->ctx, winIPC->ipcreserved);								// [emit][this][connection][socket][buffer]
 		duk_put_prop_string(winIPC->ctx, -2, ILibDuktape_net_WindowsIPC_Buffer);		// [emit][this][connection][socket]
@@ -1492,7 +1492,7 @@ duk_ret_t ILibDuktape_net_server_listen(duk_context *ctx)
 		winIPC->mServer = duk_get_heapptr(ctx, -1);
 		winIPC->mChain = duk_ctx_chain(ctx);
 		winIPC->clientConnected = FALSE;
-		winIPC->metadata = "net.ipcServer";
+		winIPC->metadata = ILibMemory_SmartAllocate_FromString("net.ipcServer");
 
 		duk_eval_string(ctx, "require('child_process');");
 		duk_pop(ctx);
