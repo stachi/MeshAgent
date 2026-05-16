@@ -525,7 +525,7 @@ duk_ret_t ILibDuktape_net_socket_connect(duk_context *ctx)
 			}
 			else
 			{
-				ILibChain_Link_SetMetadata(ptrs->socketModule, "net.ipcSocket");
+				ILibChain_Link_SetMetadata(ptrs->socketModule, ILibMemory_SmartAllocate_FromString("net.ipcSocket"));
 			}
 		}
 
@@ -715,7 +715,7 @@ void ILibDuktape_net_socket_PUSH(duk_context *ctx, ILibAsyncSocket_SocketModule 
 	ptrs->chain = ((ILibChain_Link*)module)->ParentChain;
 	ptrs->object = duk_get_heapptr(ctx, -1);
 	ptrs->socketModule = module;
-	ILibChain_Link_SetMetadata(module, "net.socket");
+	ILibChain_Link_SetMetadata(module, ILibMemory_SmartAllocate_FromString("net.socket"));
 	duk_push_pointer(ctx, ptrs->socketModule); duk_put_prop_string(ctx, -2, ILibDuktape_ChainLinkPtr);
 
 	duk_push_pointer(ctx, ptrs);								// [obj][ptrs]
@@ -867,11 +867,11 @@ void ILibDuktape_net_server_OnConnect(ILibAsyncServerSocket_ServerModule AsyncSe
 	duk_push_heapptr(ptr->ctx, ptr->self);																					// [server]
 	if (strcmp(Duktape_GetStringPropertyValue(ptr->ctx, -1, ILibDuktape_OBJID, ""), "net.ipcServer") == 0)
 	{
-		((ILibChain_Link*)ConnectionToken)->MetaData = "net.ipcServer.ipcSocketConnection";
+		ILibChain_Link_SetMetadata(ConnectionToken, ILibMemory_SmartAllocate_FromString("net.ipcServer.ipcSocketConnection"));
 	}
 	else
 	{
-		((ILibChain_Link*)ConnectionToken)->MetaData = isTLS == 0 ? "net.serverSocketConnection" : "tls.serverSocketConnection";
+		ILibChain_Link_SetMetadata(ConnectionToken, ILibMemory_SmartAllocate_FromString(isTLS == 0 ? "net.serverSocketConnection" : "tls.serverSocketConnection"));
 	}
 
 	duk_get_prop_string(ptr->ctx, -1, "emit");																				// [server][emit]
@@ -1609,7 +1609,7 @@ duk_ret_t ILibDuktape_net_server_listen(duk_context *ctx)
 			duk_dup(ctx, -1);												// [server][metadata][clone]
 			duk_put_prop_string(ctx, -3, ILibDuktape_net_server_metadata);	// [server][metadata]
 		}
-		ILibChain_Link_SetMetadata(server->server, (char*)duk_get_string(ctx, -1));
+		ILibChain_Link_SetMetadata(server->server, ILibMemory_SmartAllocate_FromString((char*)duk_get_string(ctx, -1)));
 		duk_pop(ctx);
 	}
 
@@ -2429,7 +2429,7 @@ duk_ret_t ILibDuktape_TLS_connect(duk_context *ctx)
 
 	ILibDuktape_net_socket_PUSH(ctx, module);													// [socket]
 	ILibDuktape_WriteID(ctx, "tls.socket");
-	ILibChain_Link_SetMetadata(module, "tls.socket")
+	ILibChain_Link_SetMetadata(module, ILibMemory_SmartAllocate_FromString("tls.socket"))
 #ifdef _SSL_KEYS_EXPORTABLE
 	ILibDuktape_CreateInstanceMethod(ctx, "_exportKeys", ILibDuktape_TLS_exportKeys, 0);
 #endif
