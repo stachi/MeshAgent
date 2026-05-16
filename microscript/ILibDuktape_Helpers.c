@@ -51,6 +51,28 @@ typedef struct Duktape_EventLoopDispatchData
 	void *user;
 }Duktape_EventLoopDispatchData;
 
+static void Duktape_RunOnEventLoop_ReleaseDispatch(Duktape_EventLoopDispatchData *tmp)
+{
+	ILibDuktape_ContextData *ctxd = tmp->ctxd;
+	int pendingDispatchCount = 0;
+	if (ctxd != NULL)
+	{
+#ifdef WIN32
+		pendingDispatchCount = (int)InterlockedDecrement(&(ctxd->pendingDispatchCount));
+#elif defined(__ATOMIC_SEQ_CST)
+		pendingDispatchCount = __atomic_sub_fetch(&(ctxd->pendingDispatchCount), 1, __ATOMIC_SEQ_CST);
+#else
+		pendingDispatchCount = --ctxd->pendingDispatchCount;
+#endif
+	}
+	if (ctxd != NULL && pendingDispatchCount == 0 && (ctxd->flags & duk_destroy_heap_ctxd_pending_free) == duk_destroy_heap_ctxd_pending_free)
+	{
+		ILibLinkedList_Destroy(ctxd->threads);
+		ILibMemory_Free(ctxd);
+	}
+	ILibMemory_Free(tmp);
+}
+
 duk_bool_t ILibDuktape_EXEC_TIMEOUT_CHECK(void *udata)
 {
 	ILibDuktape_ContextData *ctxd = (ILibDuktape_ContextData*)udata;
@@ -120,14 +142,14 @@ void Duktape_RunOnEventLoop_AbortSink(void *chain, void *user)
 	{
 		tmp->abortHandler(chain, tmp->user);
 	}
-	ILibMemory_Free(tmp);
+	Duktape_RunOnEventLoop_ReleaseDispatch(tmp);
 }
 void Duktape_RunOnEventLoop_Sink(void *chain, void *user)
 {
 	Duktape_EventLoopDispatchData *tmp = (Duktape_EventLoopDispatchData*)user;
 	if (tmp != NULL)
 	{
-		if (duk_ctx_is_alive(tmp->ctx) && duk_ctx_is_valid(tmp->nonce, tmp->ctx))
+		if (tmp->ctxd != NULL && tmp->ctxd->nonce == tmp->nonce && (tmp->ctxd->flags & duk_destroy_heap_in_progress) == 0)
 		{
 			// duk_context matches the intended context
 			if (tmp->handler != NULL) { tmp->handler(chain, tmp->user); }
@@ -138,23 +160,9 @@ void Duktape_RunOnEventLoop_Sink(void *chain, void *user)
 			Duktape_RunOnEventLoop_AbortSink(chain, user);
 			return;
 		}
-		ILibMemory_Free(tmp);
+		Duktape_RunOnEventLoop_ReleaseDispatch(tmp);
 	}
 }
-#ifdef WIN32
-void __stdcall Duktape_RunOnEventLoop_SanityCheck(ULONG_PTR u)
-{
-	if (!ILibMemory_CanaryOK((void*)u)) { return; }
-	Duktape_EventLoopDispatchData* d = (Duktape_EventLoopDispatchData*)((void**)u)[2];
-	if (ILibMemory_CanaryOK(d) && ILibMemory_CanaryOK(d->ctxd))
-	{
-		if ((d->ctxd->flags & duk_destroy_heap_in_progress) == duk_destroy_heap_in_progress)
-		{
-			if (d->abortHandler != NULL) { d->abortHandler(d->chain, d->user); }
-		}
-	}
-}
-#endif 
 void Duktape_RunOnEventLoop(void *chain, uintptr_t nonce, duk_context *ctx, Duktape_EventLoopDispatch handler, Duktape_EventLoopDispatch abortHandler, void *user)
 {
 	Duktape_EventLoopDispatchData* tmp = (Duktape_EventLoopDispatchData*)ILibMemory_SmartAllocate(sizeof(Duktape_EventLoopDispatchData));
@@ -164,14 +172,19 @@ void Duktape_RunOnEventLoop(void *chain, uintptr_t nonce, duk_context *ctx, Dukt
 	tmp->abortHandler = abortHandler;
 	tmp->user = user;
 	tmp->ctxd = duk_ctx_context_data(ctx);
+	if (tmp->ctxd != NULL)
+	{
+#ifdef WIN32
+		InterlockedIncrement(&(tmp->ctxd->pendingDispatchCount));
+#elif defined(__ATOMIC_SEQ_CST)
+		__atomic_add_fetch(&(tmp->ctxd->pendingDispatchCount), 1, __ATOMIC_SEQ_CST);
+#else
+		++tmp->ctxd->pendingDispatchCount;
+#endif
+	}
 	tmp->chain = chain;
 
-#ifdef WIN32
-	void *tobj = ILibChain_RunOnMicrostackThreadEx3(chain, Duktape_RunOnEventLoop_Sink, Duktape_RunOnEventLoop_AbortSink, tmp);
-	QueueUserAPC((PAPCFUNC)Duktape_RunOnEventLoop_SanityCheck, ILibChain_GetMicrostackThreadHandle(chain), (ULONG_PTR)tobj);
-#else
 	ILibChain_RunOnMicrostackThreadEx3(chain, Duktape_RunOnEventLoop_Sink, Duktape_RunOnEventLoop_AbortSink, tmp);
-#endif
 }
 
 int ILibDuktape_GetReferenceCount(duk_context *ctx, duk_idx_t i)
@@ -851,9 +864,16 @@ void Duktape_SafeDestroyHeap(duk_context *ctx)
 		}	
 #endif
 	}
-	ILibLinkedList_Destroy(ctxd->threads);	
-
-	ILibMemory_Free(ctxd);
+	if (ctxd->pendingDispatchCount == 0)
+	{
+		ILibLinkedList_Destroy(ctxd->threads);
+		ILibMemory_Free(ctxd);
+	}
+	else
+	{
+		// Pending dispatches still need ctxd to identify the destroyed heap safely.
+		ctxd->flags |= duk_destroy_heap_ctxd_pending_free;
+	}
 }
 void *Duktape_GetChain(duk_context *ctx)
 {
