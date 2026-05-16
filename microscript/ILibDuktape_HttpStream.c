@@ -558,7 +558,7 @@ duk_ret_t ILibDuktape_HttpStream_http_onUpgrade(duk_context *ctx)
 	duk_new(ctx, 2);															// [HTTPStream][readable][ext][websocket]
 	duk_remove(ctx, -2);														// [HTTPStream][readable][websocket]
 	
-	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.webSocketStream"));
+	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), ILibMemory_SmartAllocate_FromString(Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.webSocketStream")));
 	
 	duk_get_prop_string(ctx, -3, ILibDuktape_HTTP2CR);							// [HTTPStream][readable][websocket][clientRequest]
 	//duk_dup(ctx, -2);															// [HTTPStream][readable][websocket][clientRequest][websocket]
@@ -823,7 +823,7 @@ duk_ret_t ILibDuktape_HttpStream_http_OnSocketReady(duk_context *ctx)
 		return(0);
 	}
 	
-	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.clientRequest"));
+	ILibChain_Link_SetMetadata(Duktape_GetPointerProperty(ctx, -2, ILibDuktape_ChainLinkPtr), ILibMemory_SmartAllocate_FromString(Duktape_GetStringPropertyValue(ctx, -1, ILibDuktape_OBJID, "http.clientRequest")));
 
 	// Register ourselves for the close event, becuase we'll need to put ourselves back in the Queue if the socket dies before we are done
 	duk_get_prop_string(ctx, -2, "prependOnceListener");				// [socket][clientRequest][prependOnce]
