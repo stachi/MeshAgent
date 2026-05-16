@@ -271,7 +271,8 @@ int get_kbd_state()
 
 int kvm_init()
 {
-	ILibCriticalLogFilename = "KVMSlave.log";
+	if (ILibCriticalLogFilename != NULL) { free(ILibCriticalLogFilename); }
+	ILibCriticalLogFilename = ILibString_Copy("KVMSlave.log", 0);
 	int old_height_count = TILE_HEIGHT_COUNT;
 	
 	SCREEN_NUM = CGMainDisplayID();
