@@ -429,7 +429,7 @@ char* Duktape_GetBuffer(duk_context *ctx, duk_idx_t i, duk_size_t *bufLen)
 	else if (duk_is_buffer(ctx, i))
 	{
 		retVal = (char*)duk_require_buffer(ctx, i, &len);
-		if (ILibMemory_CanaryOK(ILibMemory_FromRaw(retVal)) && ILibMemory_RawSize(ILibMemory_FromRaw(retVal)) == len)
+		if (len >= sizeof(ILibMemory_Header) && ILibMemory_CanaryOK(ILibMemory_FromRaw(retVal)) && ILibMemory_RawSize(ILibMemory_FromRaw(retVal)) == len)
 		{
 			retVal = ILibMemory_FromRaw(retVal);
 			if (bufLen != NULL) { *bufLen = ILibMemory_Size(retVal); }
@@ -442,7 +442,7 @@ char* Duktape_GetBuffer(duk_context *ctx, duk_idx_t i, duk_size_t *bufLen)
 	else if(duk_is_buffer_data(ctx, i))
 	{
 		retVal = (char*)duk_require_buffer_data(ctx, i, &len);
-		if (ILibMemory_CanaryOK(ILibMemory_FromRaw(retVal)) && ILibMemory_RawSize(ILibMemory_FromRaw(retVal)) == len)
+		if (len >= sizeof(ILibMemory_Header) && ILibMemory_CanaryOK(ILibMemory_FromRaw(retVal)) && ILibMemory_RawSize(ILibMemory_FromRaw(retVal)) == len)
 		{
 			retVal = ILibMemory_FromRaw(retVal);
 			if (bufLen != NULL) { *bufLen = ILibMemory_Size(retVal); }
@@ -1044,7 +1044,7 @@ void* ILibDuktape_Immediate(duk_context *ctx, void ** args, int argsLen, ILibDuk
 	duk_push_pointer(ctx, callback);									// [setImmediate][this][func][userFunc]
 	duk_push_array(ctx);												// [setImmediate][this][func][userFunc][array]
 
-	while (args != NULL && args[i] != NULL && i < argsLen)
+	while (args != NULL && i < argsLen && args[i] != NULL)
 	{
 		duk_get_prop_string(ctx, -1, "push");							// [setImmediate][this][func][userFunc][array][push]
 		duk_dup(ctx, -2);												// [setImmediate][this][func][userFunc][array][push][this]
@@ -1345,4 +1345,3 @@ void ILibDuktape_DisplayProperties(duk_context *ctx, duk_idx_t idx)
 	duk_pcall_method(ctx, 1);
 	duk_set_top(ctx, i);
 }
-
