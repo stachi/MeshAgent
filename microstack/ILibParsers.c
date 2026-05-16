@@ -9331,24 +9331,27 @@ int ILibString_IndexOf(const char *inString, size_t inStringLength, const char *
 */
 int ILibString_LastIndexOfEx(const char *inString, size_t inStringLength, const char *lastIndexOf, size_t lastIndexOfLength, int caseSensitive)
 {
-	size_t *RetVal = NULL;
-	size_t index = ((inStringLength == 0 || inStringLength == (size_t)(-1))? strnlen_s(inString, sizeof(ILibScratchPad)) : inStringLength) - (lastIndexOfLength < 0 ? strnlen_s(lastIndexOf, sizeof(ILibScratchPad)) : lastIndexOfLength);
+	size_t stringLength = ((inStringLength == 0 || inStringLength == (size_t)(-1)) ? strnlen_s(inString, sizeof(ILibScratchPad)) : inStringLength);
+	size_t searchLength = (lastIndexOfLength == (size_t)(-1) ? strnlen_s(lastIndexOf, sizeof(ILibScratchPad)) : lastIndexOfLength);
+	size_t index;
 
-	while (index >= 0)
+	if (searchLength > stringLength) { return(-1); }
+	index = stringLength - searchLength;
+	while (1)
 	{
-		if (caseSensitive!=0 && memcmp(inString+index,lastIndexOf,lastIndexOfLength)==0)
+		if (caseSensitive!=0 && memcmp(inString+index,lastIndexOf,searchLength)==0)
 		{
-			RetVal = &index;
-			break;
+			return(index > INT32_MAX ? -1 : (int)index);
 		}
-		else if (caseSensitive==0 && strncasecmp(inString+index,lastIndexOf,lastIndexOfLength)==0)
+		else if (caseSensitive==0 && strncasecmp(inString+index,lastIndexOf,searchLength)==0)
 		{
-			RetVal = &index;
-			break;
+			return(index > INT32_MAX ? -1 : (int)index);
 		}
+		// Stop before decrementing, because index is unsigned.
+		if (index == 0) { break; }
 		--index;
 	}
-	return((RetVal == NULL || *RetVal > INT32_MAX) ? -1 : (int)(*RetVal));
+	return(-1);
 }
 /*! \fn ILibString_LastIndexOf(const char *inString, int inStringLength, const char *lastIndexOf, int lastIndexOfLength)
 \brief Returns the position index of the last occurance of a given substring
