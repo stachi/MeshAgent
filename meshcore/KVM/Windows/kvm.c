@@ -885,7 +885,7 @@ DWORD WINAPI kvm_mainloopinput_ex(LPVOID Param)
 DWORD WINAPI kvm_mainloopinput(LPVOID Param)
 {
 	DWORD ret = 0;
-	if (((int *)&(((void **)Param)[3]))[0] == 1)
+	if (((int *)&(((void **)Param)[2]))[0] == 1)
 	{
 		ILib_DumpEnabledContext winException;
 		__try
@@ -1229,7 +1229,7 @@ DWORD WINAPI kvm_server_mainloop_ex(LPVOID parm)
 DWORD WINAPI kvm_server_mainloop(LPVOID parm)
 {
 	DWORD ret = 0;
-	if (((int *)&(((void **)parm)[3]))[0] == 1)
+	if (((int *)&(((void **)parm)[2]))[0] == 1)
 	{
 		// Enable Core Dump in KVM Child
 		ILib_DumpEnabledContext winException;
@@ -1419,7 +1419,7 @@ int kvm_relay_setup(char *exePath, void *processPipeMgr, ILibKVM_WriteHandler wr
 	else
 	{
 		// if (kvmthread != NULL && g_shutdown == 0) return 0;
-		void **parms = (void **)ILibMemory_Allocate((2 * sizeof(void *)) + sizeof(int), 0, NULL, NULL);
+		void **parms = (void **)ILibMemory_Allocate(3 * sizeof(void *), 0, NULL, NULL);
 		parms[0] = writeHandler;
 		parms[1] = reserved;
 		((int *)(&parms[2]))[0] = 1;
