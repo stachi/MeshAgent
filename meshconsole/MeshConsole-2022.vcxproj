@@ -195,14 +195,14 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{E377F156-BAED-4086-B534-3CC43164607A}</ProjectGuid>
     <RootNamespace>MicrostackDuktape</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <ProjectName>MeshConsole-2022</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_NoOpenSSL|Win32'" Label="Configuration">
@@ -220,7 +220,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_NoOpenSSL|Win32'" Label="Configuration">
@@ -473,7 +473,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>MESH_AGENTID=1;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;_DEBUG;_CONSOLE;MICROSTACK_PROXY;_LINKVM;WIN32;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;_REMOTELOGGING;_REMOTELOGGINGSERVER;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0603;WINVER=0x0603;OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=1;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;_DEBUG;_CONSOLE;MICROSTACK_PROXY;_LINKVM;WIN32;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;_REMOTELOGGING;_REMOTELOGGINGSERVER;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\openssl\include-win-new;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -545,7 +545,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>MESH_AGENTID=1;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;_CONSOLE;WIN32;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0603;WINVER=0x0603;OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=1;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;_CONSOLE;WIN32;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\openssl\include-win-new;..\</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -626,7 +626,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>MESH_AGENTID=2;DUK_USE_DATE_NOW_WINDOWS;_LINKVM;NOLMSCOMMANDER;MICROSTACK_PROXY;_DEBUG;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;_REMOTELOGGING;_REMOTELOGGINGSERVER;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0603;WINVER=0x0603;OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=2;DUK_USE_DATE_NOW_WINDOWS;_LINKVM;NOLMSCOMMANDER;MICROSTACK_PROXY;_DEBUG;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;_REMOTELOGGING;_REMOTELOGGINGSERVER;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\openssl\include-win-new;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -650,7 +650,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>ARM64;MESH_AGENTID=42;DUK_USE_DATE_NOW_WINDOWS;_LINKVM;NOLMSCOMMANDER;MICROSTACK_PROXY;_DEBUG;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;_REMOTELOGGING;_REMOTELOGGINGSERVER;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0603;WINVER=0x0603;OPENSSL_API_COMPAT=0x10101000L;ARM64;MESH_AGENTID=42;DUK_USE_DATE_NOW_WINDOWS;_LINKVM;NOLMSCOMMANDER;MICROSTACK_PROXY;_DEBUG;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;_REMOTELOGGING;_REMOTELOGGINGSERVER;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\openssl\include-win-new;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -770,7 +770,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>MESH_AGENTID=2;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0603;WINVER=0x0603;OPENSSL_API_COMPAT=0x10101000L;MESH_AGENTID=2;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\openssl\include-win-new;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ExceptionHandling>Async</ExceptionHandling>
@@ -797,7 +797,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>ARM64;MESH_AGENTID=42;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0603;WINVER=0x0603;OPENSSL_API_COMPAT=0x10101000L;ARM64;MESH_AGENTID=42;DUK_USE_DATE_NOW_WINDOWS;NOLMSCOMMANDER;MICROSTACK_PROXY;_LINKVM;_CONSOLE;WIN32;WIN64;WINSOCK2;_WINSOCK_DEPRECATED_NO_WARNINGS;_MSC_PLATFORM_TOOLSET_$(PlatformToolset);MICROSTACK_TLS_DETECT;MICROSTACK_NO_STDAFX;ILibChain_WATCHDOG_TIMEOUT=600000;DUK_USE_DEBUGGER_SUPPORT;DUK_USE_INTERRUPT_COUNTER;DUK_USE_DEBUGGER_INSPECT;DUK_USE_DEBUGGER_PAUSE_UNCAUGHT;DUK_USE_DEBUGGER_DUMPHEAP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\openssl\include-win-new;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <ExceptionHandling>Async</ExceptionHandling>
