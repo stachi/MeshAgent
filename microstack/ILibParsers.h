@@ -1120,7 +1120,7 @@ int ILibIsRunningOnChainThread(void* chain);
 	void ILibChain_ReadEx2(void *chain, HANDLE h, OVERLAPPED *p, char *buffer, DWORD bufferLen, ILibChain_ReadEx_Handler handler, void *user, char *metadata);
 	#define ILibChain_ReadEx(chain, h, overlapped, buffer, bufferLen, handler, user) ILibChain_ReadEx2(chain, h, overlapped, buffer, bufferLen, handler, user, ILibChain_MetaData(__FILE__, __LINE__))
 	ILibTransport_DoneState ILibChain_WriteEx2(void *chain, HANDLE h, OVERLAPPED *p, char *buffer, DWORD bufferLen, ILibChain_WriteEx_Handler handler, void *user, char *metadata);
-	#define ILibChain_WriteEx(chain, h, overlapped, buffer, bufferLen, handler, user) ILibChain_WriteEx2(chain, h, overlapped, buffer, bufferLen, handler, user, ILibChain_MetaData(__FILE__, __LINE__))
+	#define ILibChain_WriteEx(chain, h, overlapped, buffer, bufferLen, handler, user) ILibChain_WriteEx2(chain, h, overlapped, buffer, bufferLen, handler, user, __FILE__)
 
 #endif
 	char *ILibChain_MetaData(char *file, int number);
