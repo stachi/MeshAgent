@@ -118,6 +118,7 @@ jobs:
             "${DOCKCROSS_IMAGE}" \
             bash -lc '
               set -euxo pipefail
+              git config --global --add safe.directory /work
               if [ -n "${YUM_PACKAGES}" ] && command -v yum >/dev/null 2>&1; then
                 yum install -y ${YUM_PACKAGES}
               elif [ -n "${APT_PACKAGES}" ] && command -v apt-get >/dev/null 2>&1; then
