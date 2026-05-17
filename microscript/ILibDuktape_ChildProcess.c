@@ -500,15 +500,13 @@ duk_ret_t ILibDuktape_ChildProcess_execFile(duk_context *ctx)
 		{
 			if (duk_get_length(ctx, i) > 255) { return(ILibDuktape_Error(ctx, "Array too big")); }
 			int arrLen = (int)duk_get_length(ctx, i);
-#ifdef WIN32
-			args = (char**)_alloca((arrLen + 1) * sizeof(char*));
-#else
-			args = (char**)alloca((arrLen + 1) * sizeof(char*));
-#endif
+			args = (char**)duk_push_fixed_buffer(ctx, (arrLen + 1) * sizeof(char*));
+			memset(args, 0, (arrLen + 1) * sizeof(char*));
 			for (x = 0; x < arrLen; ++x)
 			{
 				duk_get_prop_index(ctx, i, x);
 				args[x] = (char*)duk_get_string(ctx, -1);
+				duk_pop(ctx);
 			}
 			args[x] = NULL;
 		}
