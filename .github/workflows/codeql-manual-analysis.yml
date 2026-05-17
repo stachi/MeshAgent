@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Linux KVM build dependencies
         if: ${{ matrix.build-mode == 'manual' && inputs.kvm == '1' }}
