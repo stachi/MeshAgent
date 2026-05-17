@@ -1015,6 +1015,13 @@ void* ILibMemory_InitEx(void *ptr, size_t primarySize, size_t extraSize, ILibMem
 	return(ILibMemory_Init(ptr, primarySize, extraSize, memType));
 }
 #endif
+void* ILibMemory_SmartAllocateEx(size_t primarySize, size_t extraSize)
+{
+	size_t rawSize;
+	if (!ILibMemory_Size_Validate(primarySize, extraSize)) { return(NULL); }
+	rawSize = ILibMemory_Init_Size(primarySize, extraSize);
+	return(ILibMemory_InitEx(malloc(rawSize), (int)primarySize, (int)extraSize, ILibMemory_Types_HEAP));
+}
 char* ILibMemory_SmartAllocate_FromStringEx(char *str, size_t strLen)
 {
 	if (str == NULL) { return(NULL); }
