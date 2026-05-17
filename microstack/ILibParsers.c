@@ -6311,7 +6311,7 @@ int ILibHTTPEscapeEx(char* outdata, const char* data, size_t dataLen)
 	int x = 0;
 	char hex[4];
 
-	while (data[x] != 0 && x < (int)dataLen)
+	while (x < (int)dataLen && data[x] != 0)
 	{
 		if ( (data[x]>=63 && data[x]<=90) || (data[x]>=97 && data[x]<=122) || (data[x]>=47 && data[x]<=57) \
 			|| data[x]==59 || data[x]==47 || data[x]==63 || data[x]==58 || data[x]==64 || data[x]==61 \
@@ -6349,7 +6349,7 @@ int ILibHTTPEscapeLengthEx(const char* data, size_t dataLen)
 {
 	int i=0;
 	int x=0;
-	while (data[x] != 0 && i < (int)dataLen)
+	while (x < (int)dataLen && data[x] != 0)
 	{
 		if ((data[x] >= 63 && data[x] <= 90) || (data[x] >= 97 && data[x] <= 122) || (data[x] >= 47 && data[x] <= 57) \
 			|| data[x] == 59 || data[x] == 47 || data[x] == 63 || data[x] == 58 || data[x] == 64 || data[x] == 61 \
@@ -7595,7 +7595,7 @@ int ILibInPlaceXmlUnEscapeEx(char* data, size_t dataLen)
 int ILibXmlEscapeLengthEx(const char* data, size_t dataLen)
 {
 	int i = 0, j = 0;
-	while (data[i] != 0 && i < (int)dataLen)
+	while (i < (int)dataLen && data[i] != 0)
 	{
 		switch (data[i])
 		{
