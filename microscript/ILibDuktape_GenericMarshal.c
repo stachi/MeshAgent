@@ -2220,6 +2220,7 @@ duk_ret_t ILibDuktape_GenericMarshal_GlobalGenericCallback_EventSink(duk_context
 		duk_push_this(ctx);
 		Duktape_GlobalGeneric_Data *ud = (Duktape_GlobalGeneric_Data*)Duktape_GetPointerProperty(ctx, -1, ILibDuktape_GenericMarshal_GlobalSet);
 		duk_pop(ctx);
+		if (ud != NULL && !ILibMemory_CanaryOK(ud)) { return(0); }
 
 		if (ud != NULL) // This is null if we didn't context switch threads
 		{
@@ -2310,6 +2311,7 @@ duk_ret_t ILibDuktape_GenericMarshal_GlobalCallback_StartDispatcher(duk_context 
 	data = (Duktape_GlobalGeneric_Data*)duk_get_pointer(ctx, -1);
 
 	if (data == NULL) { return(ILibDuktape_Error(ctx, "Internal Error")); }
+	if (!ILibMemory_CanaryOK(data)) { return(ILibDuktape_Error(ctx, "Internal Error")); }
 	if (data->callingThread == GetCurrentThreadId()) { return(ILibDuktape_Error(ctx, "No Dispatcher")); }
 	if (data->dispatch != NULL) 
 	{
@@ -2342,6 +2344,7 @@ duk_ret_t ILibDuktape_GenericMarshal_GlobalCallback_EndDispatcher(duk_context *c
 	data = (Duktape_GlobalGeneric_Data*)duk_get_pointer(ctx, -1);
 
 	if (data == NULL) { return(ILibDuktape_Error(ctx, "Internal Error")); }
+	if (!ILibMemory_CanaryOK(data)) { return(ILibDuktape_Error(ctx, "Internal Error")); }
 	if (data->dispatch == NULL || !ILibMemory_CanaryOK(data->dispatch) || data->dispatch->WorkerThreadHandle == NULL) { return(ILibDuktape_Error(ctx, "No Dispatcher")); }
 	data->dispatch->retValue = Duktape_GetPointerProperty(ctx, 0, "_ptr");
 	QueueUserAPC((PAPCFUNC)ILibDuktape_GenericMarshal_GlobalCallback_EndDispatcher_APC, data->dispatch->WorkerThreadHandle, (ULONG_PTR)data);
