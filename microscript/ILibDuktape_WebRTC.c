@@ -61,6 +61,20 @@ typedef struct ILibDuktape_WebRTC_DataChannel
 
 extern void* ILibWrapper_WebRTC_Connection_GetStunModule(ILibWrapper_WebRTC_Connection connection);
 
+static void ILibDuktape_WebRTC_DataChannel_Unstash(duk_context *ctx, ILibWrapper_WebRTC_DataChannel *dataChannel)
+{
+	duk_push_heap_stash(ctx);
+	duk_del_prop_string(ctx, -1, Duktape_GetStashKey(dataChannel));
+	duk_pop(ctx);
+}
+static void ILibDuktape_WebRTC_DataChannel_Detach(ILibWrapper_WebRTC_DataChannel *dataChannel)
+{
+	dataChannel->Header.transport.SendOkPtr = NULL;
+	dataChannel->Header.DataChannelCallbacks.OnRawData = NULL;
+	dataChannel->OnClosed = NULL;
+	dataChannel->userData = NULL;
+}
+
 
 duk_ret_t ILibWebRTC_Duktape_ConnectionFactory_SetTurn(duk_context *ctx)
 {
@@ -181,7 +195,9 @@ void ILibDuktape_WebRTC_DataChannel_OnClose(struct ILibWrapper_WebRTC_DataChanne
 	if (ptrs != NULL && ILibMemory_CanaryOK(ptrs))
 	{ 
 		ILibDuktape_DuplexStream_WriteEnd(ptrs->stream); 
+		ILibDuktape_WebRTC_DataChannel_Detach(dataChannel);
 		ptrs->dataChannel = NULL; 
+		ILibDuktape_WebRTC_DataChannel_Unstash(ptrs->ctx, dataChannel);
 	}
 }
 void ILibDuktape_WebRTC_DataChannel_OnData(struct ILibWrapper_WebRTC_DataChannel* dataChannel, char* data, int dataLen, int dataType)
@@ -197,7 +213,7 @@ duk_ret_t ILibDuktape_WebRTC_DataChannel_Finalizer(duk_context *ctx)
 	if (ptrs->dataChannel != NULL)
 	{
 		//printf("WebRTC Data Channel Finalizer on Connection: %p\n", ptrs->dataChannel->parent);
-		ptrs->dataChannel->userData = NULL;
+		ILibDuktape_WebRTC_DataChannel_Detach(ptrs->dataChannel);
 		ILibWrapper_WebRTC_DataChannel_Close(ptrs->dataChannel);
 	}
 
@@ -237,6 +253,11 @@ void ILibDuktape_WebRTC_DataChannel_PUSH(duk_context *ctx, ILibWrapper_WebRTC_Da
 	ptrs->ctx = ctx;
 	ptrs->emitter = ILibDuktape_EventEmitter_Create(ctx);
 	ILibDuktape_CreateFinalizer(ctx, ILibDuktape_WebRTC_DataChannel_Finalizer);
+	// Keep the JS wrapper alive while native WebRTC callbacks can still reach userData.
+	duk_push_heap_stash(ctx);																				// [dataChannel][stash]
+	duk_dup(ctx, -2);																						// [dataChannel][stash][dataChannel]
+	duk_put_prop_string(ctx, -2, Duktape_GetStashKey(dataChannel));											// [dataChannel][stash]
+	duk_pop(ctx);																							// [dataChannel]
 
 	duk_push_string(ctx, dataChannel->channelName);
 	duk_put_prop_string(ctx, -2, "name");
