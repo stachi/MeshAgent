@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 #include "duktape.h"
+#include <time.h>
 
 #if defined(WIN32)
 #include <winsock2.h>
@@ -1494,7 +1495,10 @@ char *ILibDuktape_fs_convertTime(uint64_t st, char *dest, int destLen)
 	
 	len = (int)strftime(dest, destLen, "%Y-%m-%dT%H:%M:%SZ", &x);
 #else
-	len = (int)strftime(dest, destLen, "%Y-%m-%dT%H:%M:%SZ", localtime((time_t*)&(st)));
+	time_t t = (time_t)st;
+	struct tm x;
+	if (localtime_r(&t, &x) == NULL) { dest[0] = 0; return(dest); }
+	len = (int)strftime(dest, destLen, "%Y-%m-%dT%H:%M:%SZ", &x);
 #endif
 	dest[len] = 0;
 	return(dest);

@@ -9846,13 +9846,18 @@ int ILibGetLocalTime(char *dest, int destLen)
 	struct timeval  tv;
 #ifdef WIN32
 	struct tm t;
+#else
+	struct tm t;
+	time_t tt;
 #endif
 	gettimeofday(&tv, NULL);
 #ifdef WIN32
 	localtime_s(&t, (time_t*)&(tv.tv_sec));
 	retVal = (int)strftime(dest, destLen, "%Y-%m-%d %I:%M:%S %p", &t);
 #else
-	retVal = (int)strftime(dest, destLen, "%F %r", localtime((time_t*)&(tv.tv_sec)));
+	tt = (time_t)tv.tv_sec;
+	if (localtime_r(&tt, &t) == NULL) { return(0); }
+	retVal = (int)strftime(dest, destLen, "%F %r", &t);
 #endif
 	return retVal;
 }
@@ -10204,16 +10209,15 @@ char* ILibTime_Serialize(time_t timeVal)
 		T.tm_mday,
 		T.tm_hour, T.tm_min, T.tm_sec);
 #else
-	struct tm *T;
+	struct tm T;
 	char *RetVal;
 	if ((RetVal = (char*)malloc(20)) == NULL) ILIBCRITICALEXIT(254);
-	T = localtime(&timeVal);
-	if (T == NULL) ILIBCRITICALEXIT(253);
+	if (localtime_r(&timeVal, &T) == NULL) ILIBCRITICALEXIT(253);
 	sprintf_s(RetVal, 20, "%04d-%02d-%02dT%02d:%02d:%02d",
-		T->tm_year + 1900,
-		T->tm_mon + 1,
-		T->tm_mday,
-		T->tm_hour, T->tm_min, T->tm_sec);
+		T.tm_year + 1900,
+		T.tm_mon + 1,
+		T.tm_mday,
+		T.tm_hour, T.tm_min, T.tm_sec);
 #endif
 
 	return RetVal;
