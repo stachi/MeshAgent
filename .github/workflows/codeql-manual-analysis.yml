@@ -1,0 +1,68 @@
+name: CodeQL manual analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      archid:
+        description: MeshAgent Linux ARCHID to build for CodeQL
+        required: true
+        default: "6"
+      kvm:
+        description: Enable Linux KVM sources for the traced build
+        required: true
+        default: "0"
+        type: choice
+        options:
+          - "0"
+          - "1"
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: c-cpp
+            build-mode: manual
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux KVM build dependencies
+        if: ${{ matrix.build-mode == 'manual' && inputs.kvm == '1' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev \
+            libxtst-dev \
+            libxext-dev \
+            libxrandr-dev \
+            libxfixes-dev \
+            libxkbfile-dev \
+            libjpeg-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+
+      - name: Build MeshAgent for CodeQL
+        if: ${{ matrix.build-mode == 'manual' }}
+        run: make linux ARCHID=${{ inputs.archid }} KVM=${{ inputs.kvm }}
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
