@@ -805,7 +805,7 @@ int wmain(int argc, char* wargv[])
 		wmain_free(argv);
 		return(retCode);
 	}
-	else if (argc > 1 && memcmp(argv[1], "-update:", 8) == 0)
+	else if (argc > 1 && strlen(argv[1]) >= 8 && memcmp(argv[1], "-update:", 8) == 0)
 	{
 		char *update = ILibMemory_Allocate(1024, 0, NULL, NULL);
 		int updateLen;
