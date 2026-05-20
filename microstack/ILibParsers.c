@@ -7700,6 +7700,69 @@ long long ILibLifeTime_GetExpiration(void *LifetimeMonitorObject, void *data)
 	return -1;
 }
 
+static int ILibLifeTime_IsValidNode(struct ILibLifeTime *LifeTimeMonitor, ILibLinkedListNode *node)
+{
+	struct LifeTimeMonitorData *temp;
+	ILibLinkedListNode_Root *root = (ILibLinkedListNode_Root*)LifeTimeMonitor->ObjectList;
+
+	if (node == NULL || !ILibMemory_CanaryOK(node) || node->Root != root) { return(0); }
+	temp = (struct LifeTimeMonitorData*)node->Data;
+	return(temp != NULL && ILibMemory_CanaryOK(temp));
+}
+
+static int ILibLifeTime_NormalizeTimerList(struct ILibLifeTime *LifeTimeMonitor)
+{
+	ILibLinkedListNode_Root *root = (ILibLinkedListNode_Root*)LifeTimeMonitor->ObjectList;
+	ILibLinkedListNode *node;
+	ILibLinkedListNode *previous;
+	ILibLinkedListNode *next = NULL;
+	ILibLinkedListNode *newHead = NULL;
+	ILibLinkedListNode *newTail = NULL;
+	long count = 0;
+
+	if (root == NULL || !ILibMemory_CanaryOK(root)) { return(0); }
+	if ((root->Head == NULL && root->Tail == NULL) || ILibLifeTime_IsValidNode(LifeTimeMonitor, root->Head)) { return(0); }
+
+	// A WinDbg dump showed a zeroed Head node while valid timers were still reachable from Tail.
+	// Rebuild the timer list from the intact tail chain so reconnect timers are not stranded.
+	node = root->Tail;
+	while (node != NULL && ILibLifeTime_IsValidNode(LifeTimeMonitor, node))
+	{
+		previous = node->Previous;
+		if (newTail == NULL) { newTail = node; }
+		node->Next = next;
+		if (next != NULL) { next->Previous = node; }
+		newHead = node;
+		next = node;
+		++count;
+		if (previous == node) { break; }
+		node = previous;
+	}
+
+	if (newHead != NULL) { newHead->Previous = NULL; }
+	root->Head = newHead;
+	root->Tail = newTail;
+	root->count = count;
+	return(1);
+}
+
+static void ILibLifeTime_UpdateNextTriggerTick(struct ILibLifeTime *LifeTimeMonitor)
+{
+	ILibLinkedListNode *node = (ILibLinkedListNode*)ILibLinkedList_GetNode_Head(LifeTimeMonitor->ObjectList);
+	struct LifeTimeMonitorData *temp;
+
+	LifeTimeMonitor->NextTriggerTick = -1;
+	while (node != NULL)
+	{
+		temp = (struct LifeTimeMonitorData*)ILibLinkedList_GetDataFromNode(node);
+		if (temp != NULL && ILibMemory_CanaryOK(temp) && (LifeTimeMonitor->NextTriggerTick == -1 || temp->ExpirationTick < LifeTimeMonitor->NextTriggerTick))
+		{
+			LifeTimeMonitor->NextTriggerTick = temp->ExpirationTick;
+		}
+		node = (ILibLinkedListNode*)ILibLinkedList_GetNextNode(node);
+	}
+}
+
 /*! \fn ILibLifeTime_AddEx4(void *LifetimeMonitorObject,void *data, int ms, void* Callback, void* Destroy)
 \brief Registers a timed callback with millisecond granularity
 \param LifetimeMonitorObject The \a ILibLifeTime object to add the timed callback to
@@ -7717,6 +7780,8 @@ ILibLifeTime_Token ILibLifeTime_AddEx4(void *LifetimeMonitorObject, void *data, 
 	struct LifeTimeMonitorData *ltms;
 	struct ILibLifeTime *LifeTimeMonitor = (struct ILibLifeTime*)LifetimeMonitorObject;
 	void *node;
+	int forceUnblock = 0;
+	int normalized = 0;
 
 	if (LifetimeMonitorObject == NULL)
 	{
@@ -7748,13 +7813,18 @@ ILibLifeTime_Token ILibLifeTime_AddEx4(void *LifetimeMonitorObject, void *data, 
 	}
 
 	ILibLinkedList_Lock(LifeTimeMonitor->ObjectList);
+	if ((normalized = ILibLifeTime_NormalizeTimerList(LifeTimeMonitor)) != 0)
+	{
+		LifeTimeMonitor->NextTriggerTick = 0;
+		forceUnblock = 1;
+	}
 
 	// Add the node to the list
 	node = ILibLinkedList_GetNode_Head(LifeTimeMonitor->ObjectList);
 	if (node == NULL)
 	{
 		ILibLinkedList_AddTail(LifeTimeMonitor->ObjectList, ltms);
-		ILibForceUnBlockChain(LifeTimeMonitor->ChainLink.ParentChain);
+		forceUnblock = 1;
 	}
 	else
 	{
@@ -7776,14 +7846,25 @@ ILibLifeTime_Token ILibLifeTime_AddEx4(void *LifetimeMonitorObject, void *data, 
 		}
 		else if (ILibLinkedList_GetDataFromNode(ILibLinkedList_GetNode_Head(LifeTimeMonitor->ObjectList)) == ltms)
 		{
-			ILibForceUnBlockChain(LifeTimeMonitor->ChainLink.ParentChain);
+			forceUnblock = 1;
 		}
 	}
 
-	// If this notification is sooner than the existing one, replace it.
-	if (LifeTimeMonitor->NextTriggerTick > ltms->ExpirationTick || LifeTimeMonitor->NextTriggerTick == -1) LifeTimeMonitor->NextTriggerTick = ltms->ExpirationTick;
+	// Keep the cached next trigger in sync. A repaired or empty cache must be rebuilt
+	// from the full list because older timers may already be queued.
+	if (normalized != 0 || LifeTimeMonitor->NextTriggerTick == 0)
+	{
+		ILibLifeTime_UpdateNextTriggerTick(LifeTimeMonitor);
+		forceUnblock = 1;
+	}
+	else if (LifeTimeMonitor->NextTriggerTick > ltms->ExpirationTick || LifeTimeMonitor->NextTriggerTick == -1)
+	{
+		LifeTimeMonitor->NextTriggerTick = ltms->ExpirationTick;
+		forceUnblock = 1;
+	}
 
 	ILibLinkedList_UnLock(LifeTimeMonitor->ObjectList);
+	if (forceUnblock != 0) { ILibForceUnBlockChain(LifeTimeMonitor->ChainLink.ParentChain); }
 	return((void*)ltms);
 }
 
@@ -7831,6 +7912,10 @@ void ILibLifeTime_Check(void *LifeTimeMonitorObject, fd_set *readset, fd_set *wr
 	// Get the current tick count for reference
 	//
 	CurrentTick = ILibGetUptime();
+
+	ILibLinkedList_Lock(LifeTimeMonitor->ObjectList);
+	if (ILibLifeTime_NormalizeTimerList(LifeTimeMonitor) != 0) { LifeTimeMonitor->NextTriggerTick = 0; }
+	ILibLinkedList_UnLock(LifeTimeMonitor->ObjectList);
 
 	//
 	// This will speed things up by skipping the timer check
