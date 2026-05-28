@@ -341,3 +341,6 @@ ASALocalRun/
 *.o
 ToolChains/
 .DS_Store
+
+# Local Codex guidance
+AGENTS.md
