@@ -61,7 +61,7 @@ typedef uintptr_t PTRSIZE;
 #define ILibDuktape_GenericMarshal_Variable_EnableAutoFree(ctx, idx) duk_dup(ctx, idx);duk_push_true(ctx);duk_put_prop_string(ctx, -2, ILibDuktape_GenericMarshal_Variable_AutoFree);duk_pop(ctx)
 #define ILibDuktape_GenericMarshal_Variable_DisableAutoFree(ctx, idx) duk_dup(ctx, idx);duk_push_false(ctx);duk_put_prop_string(ctx, -2, ILibDuktape_GenericMarshal_Variable_AutoFree);duk_pop(ctx)
 #define WAITING_FOR_RESULT__DISPATCHER					2
-#define ILibDuktape_GenericMarshal_MethodInvoke_Native(parms, fptr, vars) ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, ILibDuktape_GenericMarshal_CallTypes_DEFAULT)
+#define ILibDuktape_GenericMarshal_MethodInvoke_Native(parms, fptr, vars) ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, ILibDuktape_GenericMarshal_CallTypes_DEFAULT, NULL)
 void ILibDuktape_GenericMarshal_Variable_PUSH(duk_context *ctx, void *ptr, int size);
 
 typedef PTRSIZE(APICALLTYPE *R0)();
@@ -124,13 +124,15 @@ static int ILibDuktape_GenericMarshal_CanReadMemory(void *ptr, size_t len)
 	end = (uintptr_t)mbi.BaseAddress + mbi.RegionSize;
 	return(addr >= (uintptr_t)mbi.BaseAddress && len <= (end - addr));
 }
-static VARIANT ILibDuktape_GenericMarshal_ReadVariant(uintptr_t ptr)
+static VARIANT ILibDuktape_GenericMarshal_ReadVariant(uintptr_t ptr, size_t available)
 {
 	VARIANT v;
+	// MeshCore can supply a short buffer for an optional empty VARIANT.
+	size_t copyLen = available == 0 || available > sizeof(VARIANT) ? sizeof(VARIANT) : available;
 	memset(&v, 0, sizeof(VARIANT));
-	if (ILibDuktape_GenericMarshal_CanReadMemory((void*)ptr, sizeof(VARIANT)) != 0)
+	if (copyLen > 0 && ILibDuktape_GenericMarshal_CanReadMemory((void*)ptr, copyLen) != 0)
 	{
-		memcpy(&v, (void*)ptr, sizeof(VARIANT));
+		memcpy(&v, (void*)ptr, copyLen);
 	}
 	return(v);
 }
@@ -141,7 +143,7 @@ static VARIANT ILibDuktape_GenericMarshal_ReadVariant(uintptr_t ptr)
 #define ILibDuktape_GenericMarshal_CUSTOM_HANDLER_MASK 0x3FFFFFFF
 ILibHashtable marshal_data = NULL;
 
-uintptr_t ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(int parms, void *fptr, uintptr_t *vars, int check, int index)
+uintptr_t ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(int parms, void *fptr, uintptr_t *vars, size_t *varSizes, int check, int index)
 {
 	uintptr_t retVal = 0;
 
@@ -152,13 +154,13 @@ uintptr_t ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(int parms, void *fptr
 			if (parms == 9)
 			{
 				if (check) { return(1); }
-				retVal = ((Z1)fptr)(vars[0], vars[1], vars[2], vars[3], ILibDuktape_GenericMarshal_ReadVariant(vars[4]), ILibDuktape_GenericMarshal_ReadVariant(vars[5]), vars[6], ILibDuktape_GenericMarshal_ReadVariant(vars[7]), vars[8]);
+				retVal = ((Z1)fptr)(vars[0], vars[1], vars[2], vars[3], ILibDuktape_GenericMarshal_ReadVariant(vars[4], varSizes[4]), ILibDuktape_GenericMarshal_ReadVariant(vars[5], varSizes[5]), vars[6], ILibDuktape_GenericMarshal_ReadVariant(vars[7], varSizes[7]), vars[8]);
 			}
 		case 2:
 			if (parms == 3)
 			{
 				if (check) { return(1); }
-				retVal = ((Z2)fptr)(vars[0], ILibDuktape_GenericMarshal_ReadVariant(vars[1]), vars[2]);
+				retVal = ((Z2)fptr)(vars[0], ILibDuktape_GenericMarshal_ReadVariant(vars[1], varSizes[1]), vars[2]);
 			}
 			break;
 #endif
@@ -1077,17 +1079,17 @@ duk_ret_t ILibDuktape_GenericMarshal_CreateCallbackProxy(duk_context *ctx)
 	return 1;
 }
 
-PTRSIZE ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(int parms, void *fptr, PTRSIZE *vars, ILibDuktape_GenericMarshal_CallTypes calltype)
+PTRSIZE ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(int parms, void *fptr, PTRSIZE *vars, ILibDuktape_GenericMarshal_CallTypes calltype, size_t *varSizes)
 {
 	PTRSIZE retVal = 0;
 
 	if ((calltype & ILibDuktape_GenericMarshal_CUSTOM_HANDLER_VERIFY) == ILibDuktape_GenericMarshal_CUSTOM_HANDLER_VERIFY)
 	{
-		return(ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(parms, fptr, vars, 1, calltype & ILibDuktape_GenericMarshal_CUSTOM_HANDLER_MASK));
+		return(ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(parms, fptr, vars, varSizes, 1, calltype & ILibDuktape_GenericMarshal_CUSTOM_HANDLER_MASK));
 	}
 	if ((calltype & ILibDuktape_GenericMarshal_CUSTOM_HANDLER) == ILibDuktape_GenericMarshal_CUSTOM_HANDLER)
 	{
-		return(ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(parms, fptr, vars, 0, calltype & ILibDuktape_GenericMarshal_CUSTOM_HANDLER_MASK));
+		return(ILibDuktape_GenericMarshal_MethodInvoke_CustomEx(parms, fptr, vars, varSizes, 0, calltype & ILibDuktape_GenericMarshal_CUSTOM_HANDLER_MASK));
 	}
 
 	switch (calltype)
@@ -1819,6 +1821,7 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvoke(duk_context *ctx)
 	void *fptr = NULL;
 	int parms = duk_get_top(ctx);
 	int i;
+	size_t varSizes[20] = { 0 };
 	PTRSIZE retVal = (PTRSIZE)(-1);
 	if (parms > 20) { return(ILibDuktape_Error(ctx, "Too many parameters")); }
 	
@@ -1846,8 +1849,10 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvoke(duk_context *ctx)
 	{
 		if (duk_is_object(ctx, i))
 		{
+			int varSize = Duktape_GetIntPropertyValue(ctx, i, "_size", 0);
 			duk_get_prop_string(ctx, i, "_ptr");
 			vars[i] = (PTRSIZE)duk_to_pointer(ctx, -1);
+			varSizes[i] = varSize > 0 ? (size_t)varSize : 0;
 		}
 		else if (duk_is_number(ctx, i))
 		{
@@ -1873,9 +1878,9 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvoke(duk_context *ctx)
 		{
 			if ((calltypes & ILibDuktape_GenericMarshal_CUSTOM_HANDLER) == ILibDuktape_GenericMarshal_CUSTOM_HANDLER)
 			{
-				if (ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, calltypes | ILibDuktape_GenericMarshal_CUSTOM_HANDLER_VERIFY) == 1)
+				if (ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, calltypes | ILibDuktape_GenericMarshal_CUSTOM_HANDLER_VERIFY, varSizes) == 1)
 				{
-					retVal = ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, calltypes);
+					retVal = ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, calltypes, varSizes);
 				}
 				else
 				{
@@ -1884,7 +1889,7 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvoke(duk_context *ctx)
 			}
 			else
 			{
-				retVal = ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, calltypes);
+				retVal = ILibDuktape_GenericMarshal_MethodInvoke_NativeEx(parms, fptr, vars, calltypes, varSizes);
 			}
 #ifdef WIN32
 			DWORD err = GetLastError();
