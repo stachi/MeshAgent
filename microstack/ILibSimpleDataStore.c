@@ -1000,6 +1000,11 @@ void ILibSimpleDataStore_Compact_EnumerateSink(ILibHashtable sender, void *Key1,
 		if (ILibSimpleDataStore_SeekPosition(root->dataFile, entry->valueOffset + totalBytesWritten, SEEK_SET) == 0)
 		{
 			valueLen = (int)fread(value, 1, bytesLeft > 4096 ? 4096 : bytesLeft, root->dataFile);
+			if (valueLen <= 0)
+			{
+				root->error = 1;
+				break;
+			}
 			bytesWritten = (int)fwrite(value, 1, valueLen, compacted);
 			if (bytesWritten != valueLen)
 			{
@@ -1119,6 +1124,16 @@ __EXPORT_TYPE int ILibSimpleDataStore_Compact(ILibSimpleDataStore dataStore)
 
 		// We then open the newly compacted data store
 		if ((root->dataFile = ILibSimpleDataStore_OpenFile(root->filePath)) != NULL) { root->fileSize = ILibSimpleDataStore_GetPosition(root->dataFile); } else { retVal = 1; }
+	}
+	else
+	{
+		fclose(compacted);
+		retVal = 1;
+#ifdef WIN32
+		DeleteFileW(ILibUTF8ToWide(tmp, -1));
+#else
+		unlink(tmp);
+#endif
 	}
 
 	free(tmp); // Free the temporary file name
