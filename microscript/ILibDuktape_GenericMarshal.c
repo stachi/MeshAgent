@@ -1296,6 +1296,7 @@ typedef struct ILibDuktape_FFI_AsyncData
 	sem_t workAvailable;
 	sem_t workStarted;
 	sem_t workFinished;
+	sem_t dispatchLock;
 }ILibDuktape_FFI_AsyncData;
 
 static void ILibDuktape_GenericMarshal_MethodInvokeAsync_RootPromise(duk_context *ctx, ILibDuktape_FFI_AsyncData *data)
@@ -1432,7 +1433,8 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop(void *arg)
 #ifdef WIN32
 		data->lastError = (DWORD)GetLastError();
 #endif
-		if (ILibMemory_CanaryOK(data))
+		sem_wait(&(data->dispatchLock));
+		if (ILibMemory_CanaryOK(data) && data->abort == 0)
 		{
 			if (data->waitingForResult == 0)
 			{
@@ -1444,10 +1446,12 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop(void *arg)
 				sem_post(&(data->workFinished));
 			}
 		}
+		sem_post(&(data->dispatchLock));
 	}
 	sem_destroy(&(data->workAvailable));
 	sem_destroy(&(data->workStarted));
 	sem_destroy(&(data->workFinished));
+	sem_destroy(&(data->dispatchLock));
 	ILibMemory_Free(data);
 }
 duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_promise(duk_context *ctx)
@@ -1471,7 +1475,9 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_abort(duk_context *ctx)
 			void *workerThread = data->workerThread;
 
 			// We can gracefully exit this thread
+			sem_wait(&(data->dispatchLock));
 			data->abort = 1;
+			sem_post(&(data->dispatchLock));
 			sem_post(workAvailable);
 			ILibThread_Join(workerThread);
 		}
@@ -1487,7 +1493,9 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_abort(duk_context *ctx)
 					duk_swap_top(data->ctx, -2);					// [rej][this]
 					duk_push_string(data->ctx, "ABORT");			// [rej][this][abort]
 
+					sem_wait(&(data->dispatchLock));
 					data->abort = 1;
+					sem_post(&(data->dispatchLock));
 					duk_call_method(ctx, 1);
 					duk_pop(ctx);									// ...
 
@@ -1519,17 +1527,21 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_dataFinalizer(duk_context
 			sem_t *workAvailable = &(data->workAvailable);
 			void *workerThread = data->workerThread;
 
+			sem_wait(&(data->dispatchLock));
 			data->abort = 1;
+			sem_post(&(data->dispatchLock));
 			sem_post(workAvailable);
 			ILibThread_Join(workerThread);
 		}
 		else
 		{
+			sem_wait(&(data->dispatchLock));
 			if (duk_ctx_shutting_down(ctx))
 			{
 				ILibLinkedList_AddTail(duk_ctx_context_data(ctx)->threads, data->workerThread);
 			}
 			data->abort = 1;
+			sem_post(&(data->dispatchLock));
 		}
 	}
 	return(0);
@@ -1671,6 +1683,7 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync(duk_context *ctx)
 				sem_init(&(data->workAvailable), 0, 0);
 				sem_init(&(data->workStarted), 0, 0);
 				sem_init(&(data->workFinished), 0, 0);
+				sem_init(&(data->dispatchLock), 0, 1);
 				data->workerThread = ILibSpawnNormalThreadEx(ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop, data, 0);
 			}
 		}
@@ -1777,6 +1790,7 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_wait(duk_context *ctx)
 		sem_init(&(data->workAvailable), 0, 0);
 		sem_init(&(data->workStarted), 0, 0);
 		sem_init(&(data->workFinished), 0, 0);
+		sem_init(&(data->dispatchLock), 0, 1);
 		data->workerThread = ILibSpawnNormalThreadEx(ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop, data, 0);
 	}
 
