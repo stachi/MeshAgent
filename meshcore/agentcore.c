@@ -3550,7 +3550,7 @@ void MeshServer_OnResponse(ILibWebClient_StateObject WebStateObject, int Interru
 	
 	// Only clear the active connect timeout for the request that generated
 	// this callback. A stale cancel callback must not remove a newer retry.
-	if (agent->controlChannelRequest != NULL && (user2 == NULL || agent->controlChannelRequest == user2))
+	if (agent->controlChannelRequest != NULL && agent->controlChannelRequest == user2)
 	{
 		ILibLifeTime_Remove(ILibGetBaseTimer(agent->chain), agent->controlChannelRequest);
 		agent->controlChannelRequest = NULL;
