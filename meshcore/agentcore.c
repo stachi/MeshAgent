@@ -25,7 +25,6 @@ limitations under the License.
 #endif
 
 #include "agentcore.h"
-#include "signcheck.h"
 #include "meshdefines.h"
 #include "meshinfo.h"
 #include "microscript/ILibDuktape_Commit.h"
@@ -4025,6 +4024,7 @@ void MeshServer_ConnectEx(MeshAgentHostContainer *agent)
 		{
 			printf("agentcore: DNS Lock[%s]: Unauthorized to connect to: %s\n", agent->DNS_LOCK, host);
 			free(host); free(path);
+			ILibDestructParserResults(rs);
 			ILibLifeTime_Add(ILibGetBaseTimer(agent->chain), agent, 5, MeshServer_ConnectEx_Lockout_Retry, NULL);
 			return;
 		}
@@ -4102,6 +4102,7 @@ void MeshServer_ConnectEx(MeshAgentHostContainer *agent)
 		{
 			printf("agentcore: ServerID Lock: ServerID MISMATCH for: %s\n", host);
 			free(host); free(path);
+			ILibDestructParserResults(rs);
 			ILibLifeTime_Add(ILibGetBaseTimer(agent->chain), agent, 5, MeshServer_ConnectEx_Lockout_Retry, NULL);
 			return;
 		}
@@ -4266,20 +4267,11 @@ void MeshServer_Agent_SelfTest(MeshAgentHostContainer *agent)
 	duk_pop(agent->meshCoreCtx);
 }
 
-void MeshServer_Connect(MeshAgentHostContainer *agent)
-{
-	unsigned int timeout;
-
-	// If this is called while we are in any connection state, just leave now.
-	if (agent->serverConnectionState != 0) return;
-
-	if (ILibSimpleDataStore_Get(agent->masterDb, "selfTest", NULL, 0) != 0)
-	{
-		MeshServer_Agent_SelfTest(agent);
-		return;
-	}
-
 #ifdef WIN32
+static void MeshServer_CheckAuthenticode(MeshAgentHostContainer *agent)
+{
+	if (agent->authenticodeChecked != 0) return;
+
 	duk_idx_t top = duk_get_top(agent->meshCoreCtx);
 	if (duk_peval_string(agent->meshCoreCtx, "require('win-authenticode-opus')(process.execPath);") == 0)							// [obj]
 	{
@@ -4303,6 +4295,26 @@ void MeshServer_Connect(MeshAgentHostContainer *agent)
 		}
 	}
 	duk_set_top(agent->meshCoreCtx, top);																							// ...
+	duk_gc(agent->meshCoreCtx, 0);
+	agent->authenticodeChecked = 1;
+}
+#endif
+
+void MeshServer_Connect(MeshAgentHostContainer *agent)
+{
+	unsigned int timeout;
+
+	// If this is called while we are in any connection state, just leave now.
+	if (agent->serverConnectionState != 0) return;
+
+	if (ILibSimpleDataStore_Get(agent->masterDb, "selfTest", NULL, 0) != 0)
+	{
+		MeshServer_Agent_SelfTest(agent);
+		return;
+	}
+
+#ifdef WIN32
+	MeshServer_CheckAuthenticode(agent);
 #endif
 
 	util_random(sizeof(int), (char*)&timeout);
@@ -4529,6 +4541,7 @@ MeshAgentHostContainer* MeshAgent_Create(MeshCommand_AuthInfo_CapabilitiesMask c
 			retVal->shCore = NULL;
 		}
 	}
+	retVal->authenticodeChecked = 0;
 #endif
 
 	retVal->agentID = (AgentIdentifiers)MESH_AGENTID;
@@ -4910,6 +4923,24 @@ int MeshAgent_AgentMode(MeshAgentHostContainer *agentHost, int paramLen, char **
 			uint64_t val = 0;
 			if (ILib_atoi_uint64(&val, ILibScratchPad, len) == 0) { ILibCriticalLog_MaxSize = val; }
 		}
+	}
+
+	if (ILibSimpleDataStore_Get(agentHost->masterDb, "logRotate", NULL, 0) != 0)
+	{
+		int len = ILibSimpleDataStore_Get(agentHost->masterDb, "logRotate", ILibScratchPad, sizeof(ILibScratchPad));
+		if (len < sizeof(ILibScratchPad))
+		{
+			uint64_t val = 0;
+			if (ILib_atoi_uint64(&val, ILibScratchPad, len) == 0 && val > 0)
+			{
+				ILibCriticalLog_CapMode = ILibAppendStringToDisk_Cap_Rotate;
+				ILibCriticalLog_RotateCount = (int)val; // value doubles as how many rotated logs to keep
+			}
+		}
+	}
+	if (ILibCriticalLog_CapMode == ILibAppendStringToDisk_Cap_Stop && ILibSimpleDataStore_Get(agentHost->masterDb, "logTruncate", NULL, 0) != 0)
+	{
+		ILibCriticalLog_CapMode = ILibAppendStringToDisk_Cap_Truncate;
 	}
 
 #ifdef WIN32
