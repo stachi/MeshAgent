@@ -2355,8 +2355,9 @@ duk_ret_t ILibDuktape_fs_mkdirSync(duk_context *ctx)
 			if (_wmkdir(path) != 0)
 			{
 				int e = errno;
-				// continue if direntry exists, exit any other error
-				if (e != EEXIST) { *sep = saved; return(ILibDuktape_Error(ctx, "fs.mkdirSync(): Unable to create dir: %s", ILibDuktape_String_WideToUTF8(ctx, (char*)path))); }
+				DWORD attributes = e == EEXIST ? GetFileAttributesW(path) : INVALID_FILE_ATTRIBUTES;
+				// Continue only when the existing path segment is a directory.
+				if (e != EEXIST || attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0) { *sep = saved; return(ILibDuktape_Error(ctx, "fs.mkdirSync(): Unable to create dir: %s", ILibDuktape_String_WideToUTF8(ctx, (char*)path))); }
 			}
 			else if (firstLen < 0) {
 				firstLen = (int)(sep - path); }	// save first pathsegment
@@ -2422,8 +2423,9 @@ duk_ret_t ILibDuktape_fs_mkdirSync(duk_context *ctx)
 			if (mkdir(path, isLast ? mode : 0777) != 0)
 			{
 				int e = errno;
-				// continue if direntry exists, exit any other error
-				if (e != EEXIST) { *sep = saved; return(ILibDuktape_Error(ctx, "fs.mkdirSync(): Unable to create dir: %s", path)); }
+				struct stat st;
+				// Continue only when the existing path segment is a directory.
+				if (e != EEXIST || stat(path, &st) != 0 || !S_ISDIR(st.st_mode)) { *sep = saved; return(ILibDuktape_Error(ctx, "fs.mkdirSync(): Unable to create dir: %s", path)); }
 			}
 			else if (firstLen < 0) { firstLen = (int)(sep - path); }	// save first created pathsegment for the return
 			*sep = saved;
