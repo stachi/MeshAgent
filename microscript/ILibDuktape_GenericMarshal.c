@@ -55,6 +55,7 @@ typedef uintptr_t PTRSIZE;
 #define ILibDuktape_GenericMarshal_StashTable			"\xFF_GenericMarshal_StashTable"
 #define ILibDuktape_GenericMarshal_AsyncStashTable		"\xFF_GenericMarshal_AsyncStashTable"
 #define ILibDuktape_GenericMarshal_AsyncAutoFree		"\xFF_GenericMarshal_AsyncAutoFree"
+#define ILibDuktape_GenericMarshal_AsyncOwner			"\xFF_GenericMarshal_AsyncOwner"
 #define ILibDuktape_GenericMarshal_GlobalCallback_ThreadID "\xFF_GenericMarshal_ThreadID"
 #define ILibDutkape_GenericMarshal_INTERNAL				"\xFF_INTERNAL"
 #define ILibDutkape_GenericMarshal_INTERNAL_X			"\xFF_INTERNAL_X"
@@ -1299,6 +1300,8 @@ typedef struct ILibDuktape_FFI_AsyncData
 	sem_t workStarted;
 	sem_t workFinished;
 	sem_t dispatchLock;
+	int dispatchPending;
+	int heapShuttingDown;
 }ILibDuktape_FFI_AsyncData;
 
 static void ILibDuktape_GenericMarshal_MethodInvokeAsync_RootPromise(duk_context *ctx, ILibDuktape_FFI_AsyncData *data)
@@ -1381,11 +1384,75 @@ static void ILibDuktape_GenericMarshal_MethodInvokeAsync_RestoreAutoFree(duk_con
 	duk_pop(ctx);																						// ...
 }
 
+static void ILibDuktape_GenericMarshal_MethodInvokeAsync_DetachPromiseData(duk_context *ctx, ILibDuktape_FFI_AsyncData *data)
+{
+	if (ctx != NULL && data->promise != NULL && data->promise != ILibDuktape_GenericMarshal_INVALID_PROMISE)
+	{
+		duk_push_heapptr(ctx, data->promise);
+		if (duk_is_object(ctx, -1))
+		{
+			duk_push_null(ctx); duk_put_prop_string(ctx, -2, "_data");
+		}
+		duk_pop(ctx);
+	}
+}
+static void ILibDuktape_GenericMarshal_MethodInvokeAsync_FreeWorkerData(ILibDuktape_FFI_AsyncData *data)
+{
+	sem_destroy(&(data->workAvailable));
+	sem_destroy(&(data->workStarted));
+	sem_destroy(&(data->workFinished));
+	sem_destroy(&(data->dispatchLock));
+	ILibMemory_Free(data);
+}
+static void ILibDuktape_GenericMarshal_MethodInvokeAsync_DestroyTransferredData(ILibDuktape_FFI_AsyncData *data)
+{
+	void *workerThread = data->workerThread;
+	data->workerThread = NULL;
+	if (workerThread != NULL) { ILibThread_Join(workerThread); }
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_FreeWorkerData(data);
+}
+static void ILibDuktape_GenericMarshal_MethodInvokeAsync_CleanupPromise(duk_context *ctx, ILibDuktape_FFI_AsyncData *data)
+{
+	if (ctx == NULL || data->promise == NULL || data->promise == ILibDuktape_GenericMarshal_INVALID_PROMISE) { return; }
+	duk_push_heapptr(ctx, data->promise);
+	duk_get_prop_string(ctx, -1, ILibDuktape_GenericMarshal_AsyncOwner);
+	if (duk_is_function(ctx, -1)) { duk_del_prop_string(ctx, -1, ILibDuktape_FFI_AsyncDataPtr); }
+	duk_pop_2(ctx);
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_DetachPromiseData(ctx, data);
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_RestoreAutoFree(ctx, data);
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_UnrootPromise(ctx, data);
+	data->promise = NULL;
+}
+static void ILibDuktape_GenericMarshal_MethodInvokeAsync_AbortCleanup(void *chain, void *user)
+{
+	ILibDuktape_FFI_AsyncData *data = (ILibDuktape_FFI_AsyncData*)user;
+	UNREFERENCED_PARAMETER(chain);
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_CleanupPromise(data->ctx, data);
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_DestroyTransferredData(data);
+}
+static void ILibDuktape_GenericMarshal_MethodInvokeAsync_AbortCleanup_Aborted(void *chain, void *user)
+{
+	UNREFERENCED_PARAMETER(chain);
+	ILibDuktape_GenericMarshal_MethodInvokeAsync_DestroyTransferredData((ILibDuktape_FFI_AsyncData*)user);
+}
+
 void ILibDuktape_GenericMarshal_MethodInvokeAsync_ChainDispatch(void *chain, void *user)
 {
 	ILibDuktape_FFI_AsyncData *data = (ILibDuktape_FFI_AsyncData*)user;
 	if (!ILibMemory_CanaryOK(data)) { return; }
 	duk_context *ctx = data->ctx;
+	int abort;
+
+	sem_wait(&(data->dispatchLock));
+	abort = data->abort;
+	data->dispatchPending = abort != 0 ? -1 : 0;
+	sem_post(&(data->dispatchLock));
+	if (abort != 0)
+	{
+		ILibDuktape_GenericMarshal_MethodInvokeAsync_CleanupPromise(ctx, data);
+		ILibDuktape_GenericMarshal_MethodInvokeAsync_DestroyTransferredData(data);
+		return;
+	}
 
 	duk_push_heapptr(data->ctx, data->promise);																// [promise]
 	duk_get_prop_string(data->ctx, -1, "_RES");																// [promise][resolver]
@@ -1405,6 +1472,7 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop(void *arg)
 	ILibDuktape_FFI_AsyncData *data = (ILibDuktape_FFI_AsyncData*)arg;
 	PTRSIZE var[20];
 	int varCount, i;
+	int cleanupTransferred = 0, freeOnWorker = 0;
 
 #ifdef WIN32
 	data->workerThreadId = GetCurrentThreadId();
@@ -1440,7 +1508,8 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop(void *arg)
 		{
 			if (data->waitingForResult == 0)
 			{
-				Duktape_RunOnEventLoop(data->chain, data->ctxnonce, data->ctx, ILibDuktape_GenericMarshal_MethodInvokeAsync_ChainDispatch, NULL, data);
+				data->dispatchPending = 1;
+				Duktape_RunOnEventLoop(data->chain, data->ctxnonce, data->ctx, ILibDuktape_GenericMarshal_MethodInvokeAsync_ChainDispatch, ILibDuktape_GenericMarshal_MethodInvokeAsync_AbortCleanup_Aborted, data);
 			}
 			else
 			{
@@ -1450,11 +1519,27 @@ void ILibDuktape_GenericMarshal_MethodInvokeAsync_WorkerRunLoop(void *arg)
 		}
 		sem_post(&(data->dispatchLock));
 	}
-	sem_destroy(&(data->workAvailable));
-	sem_destroy(&(data->workStarted));
-	sem_destroy(&(data->workFinished));
-	sem_destroy(&(data->dispatchLock));
-	ILibMemory_Free(data);
+	sem_wait(&(data->dispatchLock));
+	if (data->promise == NULL)
+	{
+		freeOnWorker = 1;
+	}
+	else if (data->dispatchPending == 0)
+	{
+		if (data->heapShuttingDown != 0)
+		{
+			freeOnWorker = 1;
+		}
+		else
+		{
+			data->dispatchPending = -1;
+			Duktape_RunOnEventLoop(data->chain, data->ctxnonce, data->ctx, ILibDuktape_GenericMarshal_MethodInvokeAsync_AbortCleanup, ILibDuktape_GenericMarshal_MethodInvokeAsync_AbortCleanup_Aborted, data);
+			cleanupTransferred = 1;
+		}
+	}
+	sem_post(&(data->dispatchLock));
+	if (cleanupTransferred != 0) { return; }
+	if (freeOnWorker != 0) { ILibDuktape_GenericMarshal_MethodInvokeAsync_FreeWorkerData(data); }
 }
 duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_promise(duk_context *ctx)
 {
@@ -1482,6 +1567,8 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_abort(duk_context *ctx)
 			sem_post(&(data->dispatchLock));
 			sem_post(workAvailable);
 			ILibThread_Join(workerThread);
+			duk_push_this(ctx);
+			duk_del_prop_string(ctx, -1, ILibDuktape_FFI_AsyncDataPtr);
 		}
 		else
 		{
@@ -1497,14 +1584,14 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_abort(duk_context *ctx)
 
 					sem_wait(&(data->dispatchLock));
 					data->abort = 1;
+					ILibDuktape_GenericMarshal_MethodInvokeAsync_DetachPromiseData(ctx, data);
 					sem_post(&(data->dispatchLock));
+					sem_post(&(data->workAvailable));
 					duk_call_method(ctx, 1);
 					duk_pop(ctx);									// ...
 
-					//
-					// We are purposefully not clearing the promise, becuase the hope is that the above layer
-					// will receive this rejection, and do a proper cleanup, which may need the promise to accomplish that.
-					// 
+					// The worker still uses the marshalled arguments. It transfers cleanup
+					// to the chain after the native call returns.
 				}
 			}
 			else
@@ -1513,8 +1600,6 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_abort(duk_context *ctx)
 				return(ILibDuktape_Error(ctx, "Cannot abort operation that is marked as 'wait for result'"));
 			}
 		}
-		duk_push_this(ctx);
-		duk_del_prop_string(ctx, -1, ILibDuktape_FFI_AsyncDataPtr);
 	}
 	return(0);
 }
@@ -1540,10 +1625,13 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync_dataFinalizer(duk_context
 			sem_wait(&(data->dispatchLock));
 			if (duk_ctx_shutting_down(ctx))
 			{
-				ILibLinkedList_AddTail(duk_ctx_context_data(ctx)->threads, data->workerThread);
+				data->heapShuttingDown = 1;
+				if (data->dispatchPending == 0) { ILibLinkedList_AddTail(duk_ctx_context_data(ctx)->threads, data->workerThread); }
 			}
 			data->abort = 1;
+			ILibDuktape_GenericMarshal_MethodInvokeAsync_DetachPromiseData(ctx, data);
 			sem_post(&(data->dispatchLock));
+			sem_post(&(data->workAvailable));
 		}
 	}
 	return(0);
@@ -1714,6 +1802,7 @@ duk_ret_t ILibDuktape_GenericMarshal_MethodInvokeAsync(duk_context *ctx)
 	}
 #endif 
 
+	if (data->promise != NULL) { duk_push_current_function(ctx); duk_put_prop_string(ctx, -2, ILibDuktape_GenericMarshal_AsyncOwner); }
 	duk_push_array(ctx);
 	for (i = 0; i < parms; ++i)
 	{
