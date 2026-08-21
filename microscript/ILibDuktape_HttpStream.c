@@ -4903,12 +4903,12 @@ duk_ret_t ILibDuktape_WebSocket_pushUInt64BigNum(duk_context *ctx, uint64_t valu
 {
 	int16_t test = 0x0001;
 	int LE = ((char*)&test)[0] ? 1 : 0;
-	uint64_t *v;
+	void *buffer;
 	duk_eval_string(ctx, "require('bignum')");								// [var][bignum]
 	duk_prepare_method_call(ctx, -1, "fromBuffer");							// [var][bignum][fromBuffer][this]
-	v = (uint64_t*)Duktape_PushBuffer(ctx, sizeof(uint64_t));				// [var][bignum][fromBuffer][this][buffer]
-	*v = value;
-	duk_push_buffer_object(ctx, -1, 0, sizeof(*v), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
+	buffer = duk_push_fixed_buffer(ctx, sizeof(value));						// [var][bignum][fromBuffer][this][buffer]
+	memcpy(buffer, &value, sizeof(value));
+	duk_push_buffer_object(ctx, -1, 0, sizeof(value), DUK_BUFOBJ_NODEJS_BUFFER);// [var][bignum][fromBuffer][this][buffer][nodebuffer]
 	duk_remove(ctx, -2);													// [var][bignum][fromBuffer][this][nodeBuffer]
 	duk_push_object(ctx);													// [var][bignum][fromBuffer][this][nodeBuffer][options
 	duk_push_string(ctx, LE ? "little" : "big");							// [var][bignum][fromBuffer][this][nodeBuffer][options][endian]
