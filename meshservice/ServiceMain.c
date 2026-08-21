@@ -44,6 +44,10 @@ limitations under the License.
 
 #include <WtsApi32.h>
 
+#if defined(_LINKVM)
+#include "meshcore/KVM/Windows/kvm.h"
+#endif
+
 TCHAR* serviceFile = TEXT("Mesh Agent");
 TCHAR* serviceName = TEXT("Mesh Agent background service");
 
@@ -75,10 +79,6 @@ extern char* g_ServiceProxyHost;
 extern int g_ServiceConnectFlags;
 */
 
-
-#if defined(_LINKVM)
-extern DWORD WINAPI kvm_server_mainloop(LPVOID Param);
-#endif
 
 #include <Shlwapi.h>
 #define SmoothingModeAntiAlias 5
@@ -703,10 +703,11 @@ int wmain(int argc, char* wargv[])
 #if defined(_LINKVM)
 	if (argc > 1 && strcasecmp(argv[1], "-kvm0") == 0)
 	{
-		void **parm = (void**)ILibMemory_Allocate(4 * sizeof(void*), 0, 0, NULL);
-		parm[0] = kvm_serviceWriteSink;
-		((int*)&(parm[2]))[0] = 0;
-		((int*)&(parm[3]))[0] = (argc > 2 && strcasecmp(argv[2], "-coredump") == 0) ? 1 : 0;
+		KVM_MainLoopParameters *parm = (KVM_MainLoopParameters*)ILibMemory_Allocate(sizeof(KVM_MainLoopParameters), 0, 0, NULL);
+		parm->writeHandler = kvm_serviceWriteSink;
+		parm->reserved = NULL;
+		parm->remotePause = 0;
+		parm->enableCoreDump = (argc > 2 && strcasecmp(argv[2], "-coredump") == 0) ? 1 : 0;
 		if ((argc > 2 && strcasecmp(argv[2], "-remotecursor") == 0) ||
 			(argc > 3 && strcasecmp(argv[3], "-remotecursor") == 0))
 		{
@@ -741,10 +742,11 @@ int wmain(int argc, char* wargv[])
 	}
 	else if (argc > 1 && strcasecmp(argv[1], "-kvm1") == 0)
 	{
-		void **parm = (void**)ILibMemory_Allocate(4 * sizeof(void*), 0, 0, NULL);
-		parm[0] = kvm_serviceWriteSink;
-		((int*)&(parm[2]))[0] = 1;
-		((int*)&(parm[3]))[0] = (argc > 2 && strcasecmp(argv[2], "-coredump") == 0) ? 1 : 0;
+		KVM_MainLoopParameters *parm = (KVM_MainLoopParameters*)ILibMemory_Allocate(sizeof(KVM_MainLoopParameters), 0, 0, NULL);
+		parm->writeHandler = kvm_serviceWriteSink;
+		parm->reserved = NULL;
+		parm->remotePause = 1;
+		parm->enableCoreDump = (argc > 2 && strcasecmp(argv[2], "-coredump") == 0) ? 1 : 0;
 		if ((argc > 2 && strcasecmp(argv[2], "-remotecursor") == 0) ||
 			(argc > 3 && strcasecmp(argv[3], "-remotecursor") == 0))
 		{

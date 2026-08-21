@@ -19,9 +19,18 @@ limitations under the License.
 
 typedef ILibTransport_DoneState(*ILibKVM_WriteHandler)(char *buffer, int bufferLen, void *reserved);
 
+typedef struct KVM_MainLoopParameters
+{
+	ILibKVM_WriteHandler writeHandler;
+	void *reserved;
+	int remotePause;
+	int enableCoreDump;
+} KVM_MainLoopParameters;
+
 int kvm_relay_feeddata(char* buf, int len, ILibKVM_WriteHandler writeHandler, void *reserved);
 void kvm_pause(int pause);
 int kvm_relay_setup(char* exePath, void *processPipeMgr, ILibKVM_WriteHandler writeHandler, void *reserved, int tsid);
+DWORD WINAPI kvm_server_mainloop(LPVOID Param);
 void kvm_cleanup();
 void kvm_setupSasPermissions();
 void kvm_relay_reset(ILibKVM_WriteHandler writeHandler, void *reserved);

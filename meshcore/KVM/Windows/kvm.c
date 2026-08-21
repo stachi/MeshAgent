@@ -837,14 +837,15 @@ void kvm_server_SetResolution(ILibKVM_WriteHandler writeHandler, void *reserved)
 #ifdef _WINSERVICE
 DWORD WINAPI kvm_mainloopinput_ex(LPVOID Param)
 {
+	KVM_MainLoopParameters *parameters = (KVM_MainLoopParameters*)Param;
 	int ptr = 0;
 	int ptr2 = 0;
 	int len = 0;
 	char pchRequest2[30000];
 	BOOL fSuccess = FALSE;
 	DWORD cbBytesRead = 0;
-	ILibKVM_WriteHandler writeHandler = (ILibKVM_WriteHandler)((void **)Param)[0];
-	void *reserved = ((void **)Param)[1];
+	ILibKVM_WriteHandler writeHandler = parameters->writeHandler;
+	void *reserved = parameters->reserved;
 
 	KVMDEBUG("kvm_mainloopinput / start", (int)GetCurrentThreadId());
 
@@ -884,8 +885,9 @@ DWORD WINAPI kvm_mainloopinput_ex(LPVOID Param)
 
 DWORD WINAPI kvm_mainloopinput(LPVOID Param)
 {
+	KVM_MainLoopParameters *parameters = (KVM_MainLoopParameters*)Param;
 	DWORD ret = 0;
-	if (((int *)&(((void **)Param)[2]))[0] == 1)
+	if (parameters->enableCoreDump != 0)
 	{
 		ILib_DumpEnabledContext winException;
 		__try
@@ -908,6 +910,7 @@ DWORD WINAPI kvm_mainloopinput(LPVOID Param)
 // This is the main KVM pooling loop. It will look at the display and see if any changes occur. [Runs as daemon if Windows Service]
 DWORD WINAPI kvm_server_mainloop_ex(LPVOID parm)
 {
+	KVM_MainLoopParameters *parameters = (KVM_MainLoopParameters*)parm;
 	// long cur_timestamp = 0;
 	// long prev_timestamp = 0;
 	// long time_diff = 50;
@@ -917,8 +920,8 @@ DWORD WINAPI kvm_server_mainloop_ex(LPVOID parm)
 	long long desktopsize;
 	BITMAPINFO bmpInfo;
 	int row, col;
-	ILibKVM_WriteHandler writeHandler = (ILibKVM_WriteHandler)((void **)parm)[0];
-	void *reserved = ((void **)parm)[1];
+	ILibKVM_WriteHandler writeHandler = parameters->writeHandler;
+	void *reserved = parameters->reserved;
 	char *tmoBuffer;
 	long mouseMove[3] = {0, 0, 0};
 	int sentHideCursor = 0;
@@ -947,7 +950,7 @@ DWORD WINAPI kvm_server_mainloop_ex(LPVOID parm)
 	g_shutdown = 0;
 
 	g_pause = 0;
-	g_remotepause = ((int *)&(((void **)parm)[2]))[0];
+	g_remotepause = parameters->remotePause;
 
 	KVMDEBUG("kvm_server_mainloop / start1", (int)GetCurrentThreadId());
 
@@ -1228,8 +1231,9 @@ DWORD WINAPI kvm_server_mainloop_ex(LPVOID parm)
 
 DWORD WINAPI kvm_server_mainloop(LPVOID parm)
 {
+	KVM_MainLoopParameters *parameters = (KVM_MainLoopParameters*)parm;
 	DWORD ret = 0;
-	if (((int *)&(((void **)parm)[2]))[0] == 1)
+	if (parameters->enableCoreDump != 0)
 	{
 		// Enable Core Dump in KVM Child
 		ILib_DumpEnabledContext winException;
@@ -1420,10 +1424,11 @@ int kvm_relay_setup(char *exePath, void *processPipeMgr, ILibKVM_WriteHandler wr
 	else
 	{
 		// if (kvmthread != NULL && g_shutdown == 0) return 0;
-		void **parms = (void **)ILibMemory_Allocate(3 * sizeof(void *), 0, NULL, NULL);
-		parms[0] = writeHandler;
-		parms[1] = reserved;
-		((int *)(&parms[2]))[0] = 1;
+		KVM_MainLoopParameters *parms = (KVM_MainLoopParameters*)ILibMemory_Allocate(sizeof(KVM_MainLoopParameters), 0, NULL, NULL);
+		parms->writeHandler = writeHandler;
+		parms->reserved = reserved;
+		parms->remotePause = 1;
+		parms->enableCoreDump = g_ILibCrashDump_path != NULL ? 1 : 0;
 		kvmConsoleMode = 1;
 
 		if (ThreadRunning == 1 && g_shutdown == 0)
