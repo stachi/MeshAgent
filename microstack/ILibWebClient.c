@@ -1232,7 +1232,7 @@ ILibAsyncSocket_SendStatus ILibWebClient_WebSocket_Send(ILibWebClient_StateObjec
 	char dataFrame[WEBSOCKET_MAX_OUTPUT_FRAMESIZE];
 	char header[10];
 	char maskKey[4];
-	int maskKeyInt;
+	uint32_t maskKeyInt;
 	int headerLen;
 	unsigned short flags = WEBSOCKET_MASK;
 	ILibAsyncSocket_SendStatus RetVal = ILibAsyncSocket_SEND_ON_CLOSED_SOCKET_ERROR;
@@ -1290,10 +1290,10 @@ ILibAsyncSocket_SendStatus ILibWebClient_WebSocket_Send(ILibWebClient_StateObjec
 		{
 			// Mask the payload
 			util_random(4, maskKey);
-			maskKeyInt = ((int*)maskKey)[0];
+			maskKeyInt = ILibUnaligned_Read32(maskKey);
 			if (bufferLen > 0) {
 				int x;
-				for (x = 0; x < (bufferLen >> 2); ++x) { ((int*)dataFrame)[x] = ((int*)buffer)[x] ^ (int)maskKeyInt; } // Mask 4 bytes at a time
+				for (x = 0; x < (bufferLen >> 2); ++x) { ILibUnaligned_Write32(dataFrame + (x << 2), ILibUnaligned_Read32(buffer + (x << 2)) ^ maskKeyInt); } // Mask 4 bytes at a time
 				for (x = (x << 2); x < bufferLen; ++x) { dataFrame[x] = buffer[x] ^ maskKey[x % 4]; } // Mask the reminder
 				//for (x = 0; x < bufferLen; ++x) { dataFrame[x] = buffer[x] ^ maskKey[x % 4]; } // This is the slower version
 			}
@@ -1345,7 +1345,7 @@ int ILibWebClient_ProcessWebSocketData(char* buffer, int offset, int length, ILi
 	if (length < 2) { return(offset); } // We need at least 2 bytes to read enough of the headers to know how long the frame is
 	state = (ILibWebClient_WebSocketState*)wr->Buffer[0];
 
-	hdr = ntohs(((unsigned short*)(buffer + offset))[0]);
+	hdr = ntohs(ILibUnaligned_Read16(buffer + offset));
 	FIN = (hdr & WEBSOCKET_FIN) != 0;
 	OPCODE = (hdr & WEBSOCKET_OPCODE) >> 8;
 
@@ -1353,7 +1353,7 @@ int ILibWebClient_ProcessWebSocketData(char* buffer, int offset, int length, ILi
 	if (plen == 126)
 	{
 		if (length < 4) { return(offset); } // We need at least 4 bytes to read enough of the headers
-		plen = (unsigned short)ntohs(((unsigned short*)(buffer + offset))[1]);
+		plen = (unsigned short)ntohs(ILibUnaligned_Read16(buffer + offset + 2));
 		i += 2;
 	}
 	else if (plen == 127)
@@ -3155,8 +3155,8 @@ void ILibWebClient_CancelRequestEx2(ILibWebClient_StateObject wcdo, void *userRe
 			// so reconnect attempts create a fresh WCDO instead of reusing
 			// this cancelled connection state.
 			RequestTokenLength = ILibCreateTokenStr((struct sockaddr*)&(_wcdo->remote), _wcdo->IndexNumber, RequestToken.bytes);
-			ILibDeleteEntry(_wcdo->Parent->DataTable, RequestToken.bytes, RequestTokenLength);
-			ILibDeleteEntry(_wcdo->Parent->idleTable, RequestToken.bytes, RequestTokenLength);
+			if (ILibGetEntry(_wcdo->Parent->DataTable, RequestToken.bytes, RequestTokenLength) == _wcdo) { ILibDeleteEntry(_wcdo->Parent->DataTable, RequestToken.bytes, RequestTokenLength); }
+			if (ILibGetEntry(_wcdo->Parent->idleTable, RequestToken.bytes, RequestTokenLength) == _wcdo) { ILibDeleteEntry(_wcdo->Parent->idleTable, RequestToken.bytes, RequestTokenLength); }
 			ILibLinkedList_Remove_ByData(_wcdo->Parent->backlogQueue, _wcdo);
 			DestroyEmptyWCDO = 1;
 		}
@@ -3181,6 +3181,10 @@ void ILibWebClient_CancelRequestEx2(ILibWebClient_StateObject wcdo, void *userRe
 					&(_wcdo->PAUSE)); // Pause is also zero
 			}
 
+			if (_wcdo->IsWebSocket != 0)
+			{
+				free(((ILibWebClient_WebSocketState*)wr->Buffer[0])->WebSocketFragmentBuffer);
+			}
 			ILibWebClient_DestroyWebRequest(wr);
 			wr = (struct ILibWebRequest*)ILibQueue_DeQueue(PendingRequestQ);
 		}

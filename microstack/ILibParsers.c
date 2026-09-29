@@ -1027,7 +1027,7 @@ void* ILibMemory_SmartAllocateEx(size_t primarySize, size_t extraSize)
 {
 	size_t rawSize;
 	if (!ILibMemory_Size_Validate(primarySize, extraSize)) { return(NULL); }
-	rawSize = ILibMemory_Init_Size(primarySize, extraSize);
+	rawSize = ILibMemory_Init_SizeEx(primarySize, extraSize);
 	return(ILibMemory_InitEx(malloc(rawSize), (int)primarySize, (int)extraSize, ILibMemory_Types_HEAP));
 }
 char* ILibMemory_SmartAllocate_FromStringEx(char *str, size_t strLen)
@@ -1048,11 +1048,11 @@ void* ILibMemory_SmartReAllocate(void *ptr, size_t len)
 {
 	if (ILibMemory_CanaryOK(ptr))
 	{
-		size_t originalRawSize = ILibMemory_Init_Size(ILibMemory_Size(ptr), ILibMemory_ExtraSize(ptr));
+		size_t originalRawSize = ILibMemory_Init_SizeEx(ILibMemory_Size(ptr), ILibMemory_ExtraSize(ptr));
 		size_t originalSize = ILibMemory_Size(ptr);
 		size_t originalExtraSize = ILibMemory_ExtraSize(ptr);
 		if (originalExtraSize) { len = (len + sizeof(void *) - 1) & ~(sizeof(void *) - 1); }
-		size_t newRawSize = ILibMemory_Init_Size(len, originalExtraSize);
+		size_t newRawSize = ILibMemory_Init_SizeEx(len, originalExtraSize);
 
 		if (newRawSize < originalRawSize && originalExtraSize > 0)
 		{
@@ -7166,7 +7166,7 @@ void ILibSetVersion(struct packetheader *packet, char* Version, size_t VersionLe
 */
 void ILibSetStatusCode(struct packetheader *packet, int StatusCode, char *StatusData, size_t StatusDataLength)
 {
-	if (StatusDataLength < 0) { StatusDataLength = (int)strnlen_s(StatusData, 255); }
+	if (StatusDataLength == (size_t)(-1)) { StatusDataLength = strnlen_s(StatusData, 255); }
 	packet->StatusCode = StatusCode;
 	if (packet->StatusData != NULL) { free(packet->StatusData); }
 	if ((packet->StatusData = (char*)malloc(StatusDataLength+1)) == NULL) ILIBCRITICALEXIT(254);
@@ -7185,12 +7185,12 @@ void ILibSetStatusCode(struct packetheader *packet, int StatusCode, char *Status
 */
 void ILibSetDirective(struct packetheader *packet, char* Directive, size_t DirectiveLength, char* DirectiveObj, size_t DirectiveObjLength)
 {
-	if (DirectiveLength < 0)DirectiveLength = (int)strnlen_s(Directive, 255);
-	if (DirectiveObjLength < 0)DirectiveObjLength = (int)strnlen_s(DirectiveObj, 255);
+	if (DirectiveLength == (size_t)(-1)) { DirectiveLength = strnlen_s(Directive, 255); }
+	if (DirectiveObjLength == (size_t)(-1)) { DirectiveObjLength = strnlen_s(DirectiveObj, 255); }
 
 	if (packet->ReservedMemory != NULL)
 	{
-		if (ILibMemory_AllocateA_Size(packet->ReservedMemory) > (unsigned int)(DirectiveLength + DirectiveObjLength + 2))
+		if (ILibMemory_AllocateA_Size(packet->ReservedMemory) > DirectiveLength + DirectiveObjLength + 2)
 		{
 			packet->Directive = (char*)ILibMemory_AllocateA_Get(packet->ReservedMemory, (size_t)DirectiveLength + 1);
 			packet->DirectiveObj = (char*)ILibMemory_AllocateA_Get(packet->ReservedMemory, (size_t)DirectiveObjLength + 1);
@@ -8616,7 +8616,7 @@ int ILibHashtable_DefaultBucketizer(int value)
 	unsigned char tmp[4];
 	int retVal = 0;
 
-	((unsigned int*)tmp)[0] = value;
+	ILibUnaligned_Write32(tmp, (uint32_t)value);
 	retVal = (int)(tmp[0] ^ tmp[1] ^ tmp[2] ^ tmp[3]); //Klocwork is being retarded, and doesn't realize an unsigned int is 4 bytes
 
 	return retVal;
@@ -8634,32 +8634,32 @@ int ILibHashtable_DefaultHashFunc(void* Key1, char* Key2, int Key2Len)
 	{
 		if (Key2Len < 5)
 		{
-			((int*)tmp)[0] = 0;
+			ILibUnaligned_Write32(tmp, 0);
 			for (i = 0; i < Key2Len; ++i)
 			{
 				tmp[i] = Key2[i];
 			}
-			retVal ^= ((int*)tmp)[0];
+			retVal ^= (int)ILibUnaligned_Read32(tmp);
 		}
-		
+
 		if (Key2Len > 4)
 		{
-			((int*)tmp)[0] = 0;
+			ILibUnaligned_Write32(tmp, 0);
 			for (i = 0; i < 4; ++i)
 			{
 				tmp[i] = Key2[Key2Len - 1 - i];
 			}
-			retVal ^= ((int*)tmp)[0];
-			
+			retVal ^= (int)ILibUnaligned_Read32(tmp);
+
 			if (Key2Len > 12)
 			{
 				int x = Key2Len / 2;
-				((int*)tmp)[0] = 0;
+				ILibUnaligned_Write32(tmp, 0);
 				for (i = 0; i < 4; ++i)
 				{
 					tmp[i] = Key2[i + x];
 				}
-				retVal ^= ((int*)tmp)[0];
+				retVal ^= (int)ILibUnaligned_Read32(tmp);
 			}
 		}
 	}
@@ -9312,24 +9312,20 @@ int ILibString_StartsWith(const char *inString, size_t inStringLength, const cha
 */
 int ILibString_IndexOfEx(const char *inString, size_t inStringLength, const char *indexOf, size_t indexOfLength,  int caseSensitive)
 {
-	size_t *RetVal = NULL;
-	size_t index = 0;
+	size_t inLen = (inStringLength == (size_t)(-1)) ? strnlen_s(inString, sizeof(ILibScratchPad)) : inStringLength;
+	size_t searchLen = (indexOfLength == (size_t)(-1)) ? strnlen_s(indexOf, sizeof(ILibScratchPad)) : indexOfLength;
+	size_t index;
 
-	while (inStringLength-index >= indexOfLength)
+	if (searchLen > inLen) { return(-1); }
+
+	for (index = 0; index <= inLen - searchLen; ++index)
 	{
-		if (caseSensitive!=0 && memcmp(inString+index,indexOf,indexOfLength)==0)
+		if (caseSensitive != 0 ? memcmp(inString + index, indexOf, searchLen) == 0 : strncasecmp(inString + index, indexOf, searchLen) == 0)
 		{
-			RetVal = &index;
-			break;
+			return(index > INT32_MAX ? -1 : (int)index);
 		}
-		else if (caseSensitive==0 && strncasecmp(inString+index,indexOf,indexOfLength)==0)
-		{
-			RetVal = &index;
-			break;
-		}
-		++index;
 	}
-	return((RetVal == NULL || *RetVal > INT32_MAX) ? -1 : (int)*RetVal);
+	return(-1);
 }
 /*! \fn ILibString_IndexOf(const char *inString, int inStringLength, const char *indexOf, int indexOfLength)
 \brief Returns the position index of the first occurance of a given substring
@@ -9354,25 +9350,19 @@ int ILibString_IndexOf(const char *inString, size_t inStringLength, const char *
 */
 int ILibString_LastIndexOfEx(const char *inString, size_t inStringLength, const char *lastIndexOf, size_t lastIndexOfLength, int caseSensitive)
 {
-	size_t stringLength = ((inStringLength == 0 || inStringLength == (size_t)(-1)) ? strnlen_s(inString, sizeof(ILibScratchPad)) : inStringLength);
-	size_t searchLength = (lastIndexOfLength == (size_t)(-1) ? strnlen_s(lastIndexOf, sizeof(ILibScratchPad)) : lastIndexOfLength);
+	size_t inLen = (inStringLength == 0 || inStringLength == (size_t)(-1)) ? strnlen_s(inString, sizeof(ILibScratchPad)) : inStringLength;
+	size_t searchLen = (lastIndexOfLength == (size_t)(-1)) ? strnlen_s(lastIndexOf, sizeof(ILibScratchPad)) : lastIndexOfLength;
 	size_t index;
 
-	if (searchLength > stringLength) { return(-1); }
-	index = stringLength - searchLength;
-	while (1)
+	if (searchLen > inLen) { return(-1); }
+
+	for (index = inLen - searchLen; ; --index)
 	{
-		if (caseSensitive!=0 && memcmp(inString+index,lastIndexOf,searchLength)==0)
+		if (caseSensitive != 0 ? memcmp(inString + index, lastIndexOf, searchLen) == 0 : strncasecmp(inString + index, lastIndexOf, searchLen) == 0)
 		{
 			return(index > INT32_MAX ? -1 : (int)index);
 		}
-		else if (caseSensitive==0 && strncasecmp(inString+index,lastIndexOf,searchLength)==0)
-		{
-			return(index > INT32_MAX ? -1 : (int)index);
-		}
-		// Stop before decrementing, because index is unsigned.
 		if (index == 0) { break; }
-		--index;
 	}
 	return(-1);
 }
@@ -11192,12 +11182,24 @@ void* ILibSpawnNormalThreadEx(voidfp1 method, void* arg, int detached)
 	pthread_t newThread;
 	fptr = (void*(*)(void*))method;
 #if defined(ILIB_NO_TIMEDJOIN)
+	if (detached != 0)
+	{
+		result = (intptr_t)pthread_create(&newThread, NULL, fptr, arg);
+		if (result == 0) { pthread_detach(newThread); }
+		return(result == 0 ? (void*)newThread : NULL);
+	}
 	ILibThread_AppleThread *ret = (ILibThread_AppleThread*)ILibMemory_SmartAllocate(sizeof(ILibThread_AppleThread));
 	ret->method = method; ret->arg = arg;
-	if (detached != 0) { sem_init(&(ret->s), 0, 0); ret->joinable = 1; }
+	ret->joinable = 1;
+	sem_init(&(ret->s), 0, 0);
 	result = (intptr_t)pthread_create(&newThread, NULL, ILibThread_AppleThread_Start, ret);
+	if (result != 0)
+	{
+		sem_destroy(&(ret->s));
+		ILibMemory_Free(ret);
+		return(NULL);
+	}
 	ret->tid = newThread;
-	if (detached != 0) { pthread_detach(newThread); }
 	return(ret);
 #else
 	result = (intptr_t)pthread_create(&newThread, NULL, fptr, arg);
@@ -11223,8 +11225,12 @@ int ILibThread_TimedJoinEx(void *thr, struct timespec* timeout)
 	if (ILibMemory_CanaryOK(thr) && ((ILibThread_AppleThread*)thr)->joinable != 0)
 	{
 		ILibThread_AppleThread *ath = (ILibThread_AppleThread*)thr;
-		if ((ret = sem_timedwait(&(ath->s), timeout)) == 0) { sem_destroy(&(ath->s)); }
-		ILibMemory_Free(thr);
+		if ((ret = sem_timedwait(&(ath->s), timeout)) == 0)
+		{
+			pthread_join(ath->tid, NULL);
+			sem_destroy(&(ath->s));
+			ILibMemory_Free(thr);
+		}
 	}
 	return(ret);
 #else
@@ -11234,7 +11240,6 @@ int ILibThread_TimedJoinEx(void *thr, struct timespec* timeout)
 struct timespec *ILibThread_ms2ts(uint32_t ms, struct timespec *ts)
 {
 	struct timeval tv;
-	long lv;
 
 	gettimeofday(&tv, NULL);
 	ts->tv_sec = tv.tv_sec;
@@ -11242,12 +11247,8 @@ struct timespec *ILibThread_ms2ts(uint32_t ms, struct timespec *ts)
 
 	ts->tv_sec += (ms / 1000);
 	ts->tv_nsec += ((ms % 1000) * 1000000);
-
-	if ((lv = ts->tv_nsec % 1000000000) > 0)
-	{
-		ts->tv_sec += 1;
-		ts->tv_nsec = lv;
-	}
+	ts->tv_sec += ts->tv_nsec / 1000000000;
+	ts->tv_nsec %= 1000000000;
 
 	return(ts);
 }
@@ -11272,6 +11273,7 @@ void ILibThread_Join(void *thr)
 		if (ILibMemory_CanaryOK(thr) && ((ILibThread_AppleThread*)thr)->joinable!=0)
 		{
 			pthread_join(((ILibThread_AppleThread*)thr)->tid, NULL);
+			sem_destroy(&(((ILibThread_AppleThread*)thr)->s));
 			ILibMemory_Free(thr);
 		}
 	#else
@@ -11620,4 +11622,3 @@ void ILibSpinLock_Lock(ILibSpinLock *lock)
 	}
 }
 #endif
-
