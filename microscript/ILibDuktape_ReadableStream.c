@@ -1050,7 +1050,8 @@ ILibDuktape_readableStream* ILibDuktape_ReadableStream_InitEx(duk_context *ctx, 
 	retVal->ResumeHandler = OnResume;
 	retVal->UnshiftHandler = OnUnshift;
 	ILibSpinLock_Init(&(retVal->pipeLock));
-	ILibDuktape_CreateFinalizerEx(ctx, ILibDuktape_ReadableStream_PipeLockFinalizer, 1);
+	// Preserve the owning object's cleanup (for example, accepted socket teardown).
+	ILibDuktape_CreateFinalizer(ctx, ILibDuktape_ReadableStream_PipeLockFinalizer);
 
 	retVal->emitter = emitter = ILibDuktape_EventEmitter_Create(ctx);
 	ILibDuktape_EventEmitter_CreateEventEx(emitter, "end");
