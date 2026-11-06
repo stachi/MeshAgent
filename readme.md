@@ -4,6 +4,7 @@
 
 [About](#about)  
 [Social Media](#social-media)  
+[Releases](#releases)\
 [MSH format](#msh-format)  
 [Self Test](#self-test)  
 [Feedback](#feedback)  
@@ -20,6 +21,11 @@ For more information, [visit MeshCentral.com](https://www.meshcentral.com).
 [X](https://x.com/MeshCentral)  
 [BlogSpot](https://meshcentral2.blogspot.com/)  
 [LinkedIn](https://www.linkedin.com/groups/13067101/)  
+
+## Releases
+
+See [Agent releases](docs/releases.md) for version tags, beta releases, release
+assets and migration of the binaries previously bundled with MeshCentral.
 
 ## MSH format
 The MeshAgent gets it's security and connection instructions from a .msh text file formatted with each line being a "key=value". The .msh file is generally created by the MeshCentral server and, for example, would look like this:
@@ -46,14 +52,14 @@ Here is a list of the possible keys that are currently supported by the agent. N
 | `coreDumpEnabled` | If set, writes a dump file when the agent crashes. |
 | `disableUpdate` | If set, prevents the agent from self-updating. |
 | `noUpdateCoreModule` | If set, prevents the agent from accepting a new meshcore from the server. |
-| `enableILibRemoteLogging` | Port number to enable web logging. Disabled if not set. |
+| `enableILibRemoteLogging` | Port number to enable web logging. Disabled if not set. Only read by debug builds made with `DEBUG=1 WEBLOG=1` or the Visual Studio Debug configuration. |
 | `fakeUpdate` | If set, agent self-updates to the same version. Sets `disableUpdate` on completion. |
 | `forceUpdate` | If set, causes the agent to perform a self-update on next start. |
 | `ignoreProxyFile` | If set, causes the agent to ignore any proxy settings. |
 | `logUpdate` | If set, causes the agent to log self-update status. |
 | `logRotate` | If set to N (greater than 0), rotates the log file when it reaches `maxLogSize`, keeping N older copies (`meshagent.log.1` … `meshagent.log.N`). |
 | `logTruncate` | If set, clears the log file and continues when it reaches `maxLogSize` instead of stopping. Ignored if `logRotate` is set. |
-| `jsDebugPort` | Specifies a JS debugger port. |
+| `jsDebugPort` | Specifies a JS debugger port. Only works in debug builds made with `DEBUG=1` or the Visual Studio Debug configuration. |
 | `maxLogSize` | Maximum size in bytes of the log file (`meshagent.log`). Default 524288 (512 KiB). When reached, logging stops by default unless `logRotate` or `logTruncate` is set. |
 | `nocertstore` | Windows only. Forces the agent to use OpenSSL instead of WinCrypto for cert generation/storage. |
 | `readonly` | If set, forces the agent to open the database in read-only mode. |
